@@ -13,6 +13,10 @@ pov_results <- foreach (year = years, .combine = "rbind",
   plfs.rec=read_dta(paste(datapath,
       "/Data/Stage 2/Cleaned/IND_",year,"_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta",
       sep="")) 
+  if(year>=2020){
+    plfs.rec$consumption_pc_adj=with(plfs.rec,
+                              consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
+  }
   #Load simulations results
   df=readRDS(file=paste(datapath,
             "/Data/Stage 2/Final/Simulations_model_",use_mod,"_",year,".rds",sep=""))

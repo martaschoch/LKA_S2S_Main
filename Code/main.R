@@ -1,6 +1,8 @@
 ### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
-### This version: July 29, 2029
+### This version: Dec 8, 2025
+### Rescale abbreviated consumption 2020-22 in PLFS 
+### to exclude clothing & footwear
 ### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
 
 ### Main R Script
@@ -41,7 +43,7 @@ lapply(packages, require, character.only = TRUE)
 
 # Set paths
 path <- "C:/Users/wb553773/GitHub/India_S2S"
-datapath <- "C:/Users/wb553773/WBG/Nishtha Kochhar - INDDATA/S2S imputations_CES_LFS/Reproducibility package"
+datapath <- "C:/Users/wb553773/OneDrive - WBG/Stats Team/IND S2S imputation/Reproducibility package"
 
 # Set global parameters
 
@@ -79,6 +81,15 @@ icp21=19.46895
 lic=3.0
 lmic=4.2
 umic=8.3
+
+# Expected difference between expenditure in clothing and footwear
+# captured through detailed question in comparison to aggregated as
+# part of the usual monthly expenditure in goods and services
+# Pradhan, M. (2009). Welfare Analysis with a Proxy Consumption Measure: 
+# Evidence from a Repeated Experiment in Indonesia. Fiscal Studies, 30(3/4),
+# 391–417. http://www.jstor.org/stable/24440125
+
+delta=0.345 # Pradhan (2009, p. 406)
 
 # Run the R scripts
 

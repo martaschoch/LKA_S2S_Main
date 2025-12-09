@@ -369,6 +369,10 @@ plfs.rec=read_dta(paste(datapath,
      sep="")) 
 #create sequential IDs
 plfs.rec$hidseq=seq(1:nrow(plfs.rec))
+if(year>=2020){
+  plfs.rec$consumption_pc_adj=with(plfs.rec,
+              consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
+}
 plfs.rec=subset(plfs.rec,!is.na(consumption_pc_adj))
 plfs.rec$hh_type <- as.factor(plfs.rec$hh_type)
 plfs.rec$state <- as.factor(plfs.rec$state)

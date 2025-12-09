@@ -7,7 +7,8 @@ plfs=read_dta(paste0(datapath,
      "/Data/Stage 2/Cleaned/IND_2022_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta"))
 plfs$survey="PLFS"
 plfs = plfs %>%
-  mutate(log_consumption_pc_adj = log(consumption_pc_adj),
+  mutate(consumption_pc_adj=consumption_pc_adj*(1-shr_clothing*delta/(1+delta)),
+         log_consumption_pc_adj = log(consumption_pc_adj),
          weight=weight*hh_size) %>%
   rename(welfare=log_consumption_pc_adj)
 
@@ -26,7 +27,7 @@ ggplot(na.omit(df), aes(x = welfare, weight = weight,
   geom_density(alpha = 0.4, adjust=1.5) +
   labs(x = "Log Consumption (2022 prices, spatially adjusted)",
        y = "Density",
-       title = "Official (HCES) and Abbreviated (PLFS) Log Consumption Aggregate (2022-23)")
+       title = "Official (HCES) and Abbreviated (PLFS, rescaled) Log Consumption Aggregate (2022-23)")
 
 ggsave(paste(path,
              "/Outputs/Main/Figures/Figure 3.png",sep=""),
@@ -39,6 +40,10 @@ for (year in years) {
   plfs.rec=read_dta(paste(datapath,
              "/Data/Stage 2/Cleaned/IND_",year,"_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta",sep="")) 
   plfs.rec$log_labor_pc_adj=log(plfs.rec$total_labor_pc_adj+1)
+  if(year>=2020){
+    plfs.rec$consumption_pc_adj=with(plfs.rec,
+                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
+  }
   plfs.rec$log_consumption_pc_adj=log(plfs.rec$consumption_pc_adj+1)
   plfs.rec$pop_wgt=with(plfs.rec,weight*hh_size)
   assign(paste0("data", year), plfs.rec)
@@ -113,7 +118,7 @@ ggplot(combined_data, aes(
   ) +
   scale_fill_viridis_d(guide = "none") +
   labs(
-    x = "Log Consumption (abbreviated, 2022 prices, spatially adjusted)",
+    x = "Log Consumption (abbreviated, 2022 prices, spatially adjusted, rescaled-delta)",
     y = "Year",
     title = "Log Abbreviated Consumption Density and Median by Sector and Year"
   ) +
@@ -550,6 +555,10 @@ plfs.don=subset(plfs.don,!is.na(mpce_sp_def_ind))
 #The ratio is calculated by dividing the imputed consumption by the
 #previously deflated and temporaly adjusted 
 #abbreviated consumption available in the PLFS.
+
+#New in this version: rescale abbreviated consumption
+plfs.don$consumption_pc_adj=with(plfs.don,
+                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
 plfs.don$ratio = with(plfs.don,
                       mpce_sp_def_ind/consumption_pc_adj)
 
@@ -567,7 +576,7 @@ ggplot(plfs.don, aes(x = ratio, y = fct_rev(quintile),
   geom_density_ridges(alpha = 0.5, scale = 1.5, rel_min_height = 0.01) +
   labs(x = "Ratio",
        y = "Quintile",
-       title = "Ridgeline Plot of MMRP to Abbreviate Consumption (2022-23)") +
+       title = "Ridgeline Plot of MMRP to Abbreviate Consumption (2022-23, rescaled-delta)") +
   xlim(c(0, 7.5)) +
   theme_ridges() + 
   theme(legend.position = "none") 
