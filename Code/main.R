@@ -1,7 +1,8 @@
 ### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
-### This version: Dec 8, 2025
-### Rescale abbreviated consumption 2020-22 in PLFS 
+### This version: Dec 9, 2025
+### Use labor income as linking variable. For HHs w/o income, use 
+### abbreviated consumption (rescaled in 2020-22) in PLFS 
 ### to exclude clothing & footwear
 ### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
 
@@ -63,9 +64,13 @@ seed = 1729
 X.mtc1=c("ymatch","hh_size","hh_head_age") # nearest neighbor search variables
 don.vars1=c("mpce_sp_def_ind") #variables to be imputed
 
-# Matching parameters stage 2
-X.mtc2=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
-don.vars2=c("ratio") #variables to be imputed
+# Matching parameters stage 2 HHs with income
+X.mtc2.i=c("total_labor_pc_adj","hh_size","hhb_year") # nearest neighbor search variables
+don.vars2.i=c("ratio.i") #variables to be imputed
+
+# Matching parameters stage 2 HHs w/o income
+X.mtc2.ni=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
+don.vars2.ni=c("ratio") #variables to be imputed
 
 # Statistic to be used to ensemble simulations in stage 2
 use_stat="median" #alternatively: mean, median geometric_mean

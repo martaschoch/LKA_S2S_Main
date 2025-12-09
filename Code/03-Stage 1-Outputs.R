@@ -67,7 +67,7 @@ vars_to_keep <- c(
   "hh_sh_health", "hh_head_lit", "hh_head_job_contract", "hh_sh_occ_7", 
   "hh_sh_occ_1", "hh_sh_occ_5", "flag6_income", "hh_head_occ_5", "hhtype_5", 
   "hh_head_occ_7", "hhtype_2", "hh_sp_educ_ter", "hh_sh_occ_3", 
-  "hh_sp_educ_sec", "hh_sh_wrk_unpaid"
+  "hh_sp_educ_sec", "hh_sh_wrk_unpaid","log_labor_pc_adj"
 )
 
 # Subset each data frame to keep only the desired columns
@@ -84,7 +84,7 @@ stats_data <- combined_data %>%
   group_by(year, urban) %>%
   summarise(
     median_val = as.numeric(Hmisc::wtd.quantile(
-      log_consumption_pc_adj,
+      log_labor_pc_adj,
       weights = pop_wgt, probs = 0.5
     )),
     .groups = "drop"
@@ -97,7 +97,7 @@ stats_data <- combined_data %>%
 
 # Ridge plot with median lines colored by urban/rural
 ggplot(combined_data, aes(
-  x = log_consumption_pc_adj,
+  x = log_labor_pc_adj,
   y = year,
   fill = as.factor(year)
 )) +
@@ -118,9 +118,9 @@ ggplot(combined_data, aes(
   ) +
   scale_fill_viridis_d(guide = "none") +
   labs(
-    x = "Log Consumption (abbreviated, 2022 prices, spatially adjusted, rescaled-delta)",
+    x = "Log Labor Income (2022 prices, spatially adjusted)",
     y = "Year",
-    title = "Log Abbreviated Consumption Density and Median by Sector and Year"
+    title = "Log Abbreviated Income Density and Median by Sector and Year"
   ) +
   scale_x_continuous(limits = c(6, 10), breaks = seq(6, 10, by = 0.5)) +
   theme_minimal(base_size = 14) +
@@ -561,6 +561,9 @@ plfs.don$consumption_pc_adj=with(plfs.don,
                       consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
 plfs.don$ratio = with(plfs.don,
                       mpce_sp_def_ind/consumption_pc_adj)
+plfs.don$ratio.i = with(plfs.don,
+                      mpce_sp_def_ind/total_labor_pc_adj)
+plfs.don$ratio.i = ifelse(plfs.don$ratio.i<Inf,plfs.don$ratio.i,NA)
 
 ### Figure 12####
 
@@ -571,12 +574,12 @@ plfs.don$quintile=xtile(plfs.don$mpce_sp_def_ind,n=5,wt=plfs.don$weight)
 plfs.don$quintile=as.factor(plfs.don$quintile)
 plfs.don$pop_wgt=with(plfs.don,hh_size * weight)
 
-ggplot(plfs.don, aes(x = ratio, y = fct_rev(quintile), 
+ggplot(plfs.don, aes(x = ratio.i, y = fct_rev(quintile), 
                      weight = pop_wgt, fill = quintile)) +
   geom_density_ridges(alpha = 0.5, scale = 1.5, rel_min_height = 0.01) +
   labs(x = "Ratio",
        y = "Quintile",
-       title = "Ridgeline Plot of MMRP to Abbreviate Consumption (2022-23, rescaled-delta)") +
+       title = "Ridgeline Plot of MMRP to Labor Income (2022-23)") +
   xlim(c(0, 7.5)) +
   theme_ridges() + 
   theme(legend.position = "none") 
@@ -590,19 +593,19 @@ ggsave(paste(path,
 #HEATMAP OF DECILES
 
 plfs.don$decile_mmrp=xtile(plfs.don$mpce_sp_def_ind,n=10,wt=plfs.don$pop_wgt)
-plfs.don$decile_abbr=xtile(plfs.don$consumption_pc_adj,n=10,wt=plfs.don$pop_wgt)
+plfs.don$decile_inc=xtile(plfs.don$total_labor_pc_adj,n=10,wt=plfs.don$pop_wgt)
 
 des <- svydesign(ids = ~1, weights = ~pop_wgt, data = plfs.don)
 
 #Cross-tabulate weighted counts
-tab <- svytable(~decile_mmrp + decile_abbr, design = des)
+tab <- svytable(~decile_mmrp + decile_inc, design = des)
 heatmap_data <- as.data.frame(tab)
 
 heatmap_data <- heatmap_data %>%
   mutate(rel_freq = Freq / sum(Freq))
 
 #Plot heatmap
-ggplot(heatmap_data, aes(x = decile_mmrp, y = decile_abbr, fill = rel_freq)) +
+ggplot(heatmap_data, aes(x = decile_mmrp, y = decile_inc, fill = rel_freq)) +
   geom_tile(color = "white") +
   #geom_text(aes(label = percent(rel_freq, accuracy = .1)), color = "white", size = 3) +
   scale_fill_viridis_c(
@@ -612,7 +615,7 @@ ggplot(heatmap_data, aes(x = decile_mmrp, y = decile_abbr, fill = rel_freq)) +
   labs(
     title = "Cross-Decile Heatmap",
     x = "Deciles of imputed consumption",
-    y = "Deciles of abbreviated consumption",
+    y = "Deciles of labor income",
     fill = "Proportion of population"
   ) +
   theme_minimal()
