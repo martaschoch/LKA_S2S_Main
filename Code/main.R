@@ -1,7 +1,8 @@
 ### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
-### This version: July 29, 2029
-### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
+### This version: Dec 9, 2025
+### Use labor income as linking variable plus mmrp to income ratio.
+### For HHs w/o income, use mmrp to abbreviated consumption ratio### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
 
 ### Main R Script
 
@@ -41,7 +42,7 @@ lapply(packages, require, character.only = TRUE)
 
 # Set paths
 path <- "C:/Users/wb553773/GitHub/India_S2S"
-datapath <- "C:/Users/wb553773/WBG/Nishtha Kochhar - INDDATA/S2S imputations_CES_LFS/Reproducibility package"
+datapath <- "C:/Users/wb553773/OneDrive - WBG/Stats Team/IND S2S imputation/Reproducibility package"
 
 # Set global parameters
 
@@ -61,9 +62,13 @@ seed = 1729
 X.mtc1=c("ymatch","hh_size","hh_head_age") # nearest neighbor search variables
 don.vars1=c("mpce_sp_def_ind") #variables to be imputed
 
-# Matching parameters stage 2
-X.mtc2=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
-don.vars2=c("ratio") #variables to be imputed
+# Matching parameters stage 2 HHs with income
+X.mtc2.i=c("ymatch","log_labor_pc_adj","hh_size","hhb_year") # nearest neighbor search variables
+don.vars2.i=c("ratio.i") #variables to be imputed
+
+# Matching parameters stage 2 HHs w/o income
+X.mtc2.ni=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
+don.vars2.ni=c("ratio") #variables to be imputed
 
 # Statistic to be used to ensemble simulations in stage 2
 use_stat="median" #alternatively: mean, median geometric_mean

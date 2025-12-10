@@ -106,7 +106,8 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
   if(a == 1) {
     data.don <- plfs.don %>%
       filter(flag6_income==a) %>%
-      select(-all_of(c(occ_vars,inc_vars)))
+      select(-all_of(c(occ_vars,inc_vars)))%>%
+      select(-ratio.i)
     data.rec <- plfs.rec %>%
       filter(flag6_income==a) %>%
       select(-all_of(c(occ_vars,inc_vars)))
@@ -140,10 +141,12 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
   #Combine the covariate names
   if(a == 0) {
     covariates <- c(hh_vars, inc_vars, oth_vars)
-    X.mtc=X.mtc2 # NN search variables
+    X.mtc2=X.mtc2.i # NN search variables
+    don.vars2=don.vars2.i
   } else {
     covariates <- c(hh_vars, oth_vars)
-    X.mtc=X.mtc2 # NN search variables
+    X.mtc2=X.mtc2.ni # NN search variables
+    don.vars2=don.vars2.ni
   }
   
   # Create the formula 
@@ -284,15 +287,20 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
     #Matching using lasso predictions and random nearest neighbor distance hot deck (D'Orazio, 2017)
     rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                               match.vars=X.mtc2, don.class=group.v,
-                              dist.fun="Euclidean",
+                              dist.fun="Mahalanobis",
                               cut.don="min")
     
     #Create fused dataset
     fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                             mtc.ids=rnd.2$mtc.ids,
                             z.vars=don.vars2) 
-    fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
-                                   ratio*consumption_pc_adj)
+    if(a == 0) {
+      fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                     ratio.i*total_labor_pc_adj)
+    } else {
+      fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                     ratio*consumption_pc_adj)
+    }
     fA.wrnd = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
     names(fA.wrnd)[2]=paste("mpce_sp_def_ind_",j,sep="")
     simcons=merge(simcons,fA.wrnd,by="hhid")
@@ -417,7 +425,8 @@ inc_vars = c("shr_regwages","shr_caswages","shr_selfinc",
       if(a == 1) {
         data.don <- plfs.don %>%
           filter(flag6_income==a) %>%
-          select(-all_of(c(occ_vars,inc_vars)))
+          select(-all_of(c(occ_vars,inc_vars)))%>%
+          select(-ratio.i)
         data.rec <- plfs.rec %>%
           filter(flag6_income==a) %>%
           select(-all_of(c(occ_vars,inc_vars)))
@@ -451,10 +460,12 @@ inc_vars = c("shr_regwages","shr_caswages","shr_selfinc",
       #Combine the covariate names
       if(a == 0) {
         covariates <- c(hh_vars, inc_vars, oth_vars)
-        X.mtc=X.mtc2 # NN search variables
+        X.mtc2=X.mtc2.i # NN search variables
+        don.vars2=don.vars2.i
       } else {
         covariates <- c(hh_vars, oth_vars)
-        X.mtc=X.mtc2 # NN search variables
+        X.mtc2=X.mtc2.ni # NN search variables
+        don.vars2=don.vars2.ni
       }
       
       # Create the formula 
@@ -555,15 +566,20 @@ inc_vars = c("shr_regwages","shr_caswages","shr_selfinc",
         #Matching using lasso predictions and random nearest neighbor distance hot deck (D'Orazio, 2017)
         rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                                   match.vars=X.mtc2, don.class=group.v,
-                                  dist.fun="Euclidean",
+                                  dist.fun="Mahalanobis",
                                   cut.don="min")
         
-        #Create fused dataset 
+        #Create fused dataset
         fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                                 mtc.ids=rnd.2$mtc.ids,
                                 z.vars=don.vars2) 
-        fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
-                                       ratio*consumption_pc_adj)
+        if(a == 0) {
+          fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                         ratio.i*total_labor_pc_adj)
+        } else {
+          fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                         ratio*consumption_pc_adj)
+        }
         fA.wrnd = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
         names(fA.wrnd)[2]=paste("mpce_sp_def_ind_",j,sep="")
         simcons=merge(simcons,fA.wrnd,by="hhid")
