@@ -1,9 +1,8 @@
 ### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
 ### This version: Dec 9, 2025
-### Use labor income as linking variable. For HHs w/o income, use 
-### abbreviated consumption (rescaled in 2020-22) in PLFS 
-### to exclude clothing & footwear
+### Use labor income as linking variable plus mmrp to income ratio.
+### For HHs w/o income, use mmrp to abbreviated consumption ratio
 ### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
 
 ### Main R Script
@@ -86,15 +85,6 @@ icp21=19.46895
 lic=3.0
 lmic=4.2
 umic=8.3
-
-# Expected difference between expenditure in clothing and footwear
-# captured through detailed question in comparison to aggregated as
-# part of the usual monthly expenditure in goods and services
-# Pradhan, M. (2009). Welfare Analysis with a Proxy Consumption Measure: 
-# Evidence from a Repeated Experiment in Indonesia. Fiscal Studies, 30(3/4),
-# 391–417. http://www.jstor.org/stable/24440125
-
-delta=0.345 # Pradhan (2009, p. 406)
 
 # Run the R scripts
 

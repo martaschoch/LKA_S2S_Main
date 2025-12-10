@@ -159,7 +159,7 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
       #Matching using rpcinc_tot and random nearest neighbor distance hot deck (D'Orazio, 2017)
       rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                                 match.vars=X.mtc2.i, don.class=group.v,
-                                dist.fun="Euclidean",
+                                dist.fun="Mahalanobis",
                                 cut.don="min")
       
       #Create fused dataset
@@ -400,10 +400,6 @@ plfs.rec=read_dta(paste(datapath,
      sep="")) 
 #create sequential IDs
 plfs.rec$hidseq=seq(1:nrow(plfs.rec))
-if(year>=2020){
-  plfs.rec$consumption_pc_adj=with(plfs.rec,
-              consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
-}
 plfs.rec=subset(plfs.rec,!is.na(consumption_pc_adj))
 plfs.rec$hh_type <- as.factor(plfs.rec$hh_type)
 plfs.rec$state <- as.factor(plfs.rec$state)
@@ -509,7 +505,7 @@ inc_vars = c("shr_regwages","shr_caswages","shr_selfinc",
           #Matching using rpcinc_tot and random nearest neighbor distance hot deck (D'Orazio, 2017)
           rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                                     match.vars=X.mtc2.i, don.class=group.v,
-                                    dist.fun="Euclidean",
+                                    dist.fun="Mahalanobis",
                                     cut.don="min")
           
           #Create fused dataset

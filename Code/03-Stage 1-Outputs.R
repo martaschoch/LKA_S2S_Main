@@ -7,8 +7,7 @@ plfs=read_dta(paste0(datapath,
      "/Data/Stage 2/Cleaned/IND_2022_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta"))
 plfs$survey="PLFS"
 plfs = plfs %>%
-  mutate(consumption_pc_adj=consumption_pc_adj*(1-shr_clothing*delta/(1+delta)),
-         log_consumption_pc_adj = log(consumption_pc_adj),
+  mutate(log_consumption_pc_adj = log(consumption_pc_adj),
          weight=weight*hh_size) %>%
   rename(welfare=log_consumption_pc_adj)
 
@@ -40,10 +39,6 @@ for (year in years) {
   plfs.rec=read_dta(paste(datapath,
              "/Data/Stage 2/Cleaned/IND_",year,"_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta",sep="")) 
   plfs.rec$log_labor_pc_adj=log(plfs.rec$total_labor_pc_adj+1)
-  if(year>=2020){
-    plfs.rec$consumption_pc_adj=with(plfs.rec,
-                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
-  }
   plfs.rec$log_consumption_pc_adj=log(plfs.rec$consumption_pc_adj+1)
   plfs.rec$pop_wgt=with(plfs.rec,weight*hh_size)
   assign(paste0("data", year), plfs.rec)
@@ -556,9 +551,6 @@ plfs.don=subset(plfs.don,!is.na(mpce_sp_def_ind))
 #previously deflated and temporaly adjusted 
 #abbreviated consumption available in the PLFS.
 
-#New in this version: rescale abbreviated consumption
-plfs.don$consumption_pc_adj=with(plfs.don,
-                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
 plfs.don$ratio = with(plfs.don,
                       mpce_sp_def_ind/consumption_pc_adj)
 plfs.don$ratio.i = with(plfs.don,
