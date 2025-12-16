@@ -1,7 +1,8 @@
-### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
+### Estimating a poverty trend in Sri Lanka: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
-### This version: July 29, 2029
-### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
+### This version: October 29 2025
+### Authors: Jaime Fernandez Romero (jfernandezromero@worldbank.org) and
+###          Marta Schoch (mschoch@worldbank.org)
 
 ### Main R Script
 
@@ -9,85 +10,90 @@
 rm(list=ls())
 
 #renv::init()
-renv::restore()
+
 # Check intallation of required packages
 packages <- c(
   "StatMatch", "survey", "questionr", "reldist", "glmnet", "useful",
   "data.table", "haven", "statar", "parallel", "foreach", "doParallel",
   "dplyr", "tidyr", "dineq", "convey", "renv", "transport", "ggridges",
-  "ggplot2","forcats","scales","readxl","Hmisc","viridis","ggh4x","patchwork",
-  "GGally"
+  "ggplot2","forcats","scales","readxl","Hmisc","xgboost","matrixStats",
+  "ggh4x"
 )
 
-# CRAN mirror (optional but recommended)
-options(repos = c(CRAN = "https://cloud.r-project.org"))
-
-# Function to check for installed packages
-is_installed <- function(pkg) {
-  suppressWarnings(requireNamespace(pkg, quietly = TRUE))
+# Install missing packages
+installed <- installed.packages()
+for (pkg in packages) {
+  if (!(pkg %in% rownames(installed))) {
+    install.packages(pkg, dependencies = TRUE)
+  }
 }
 
-missing_pkgs <- packages[!vapply(packages, is_installed, logical(1))]
-
-if (length(missing_pkgs)) {
-  install.packages(missing_pkgs)
-} else {
-  message("All packages already installed.")
-}
-
+#renv::restore()
 
 # Load all packages
 lapply(packages, require, character.only = TRUE)
 
 # Set paths
-path <- "C:/Users/wb553773/GitHub/India_S2S"
-datapath <- "C:/Users/wb553773/WBG/Nishtha Kochhar - INDDATA/S2S imputations_CES_LFS/Reproducibility package"
+#path <- "C:/Users/wb562318/Github"
+#datapath <- "C:/Users/wb562318/OneDrive - WBG/Documents/POV-SAR/SL/PA/Analysis/Data/"
+
+path <- "C:/Users/wb553773/Github/India_S2S"
+datapath <-"C:/Users/wb553773/WBG/Marta Schoch - Analysis/Data/"
+outpath <- "C:/Users/wb553773/WBG/Marta Schoch - Analysis/Out/s2s/"
 
 # Set global parameters
 
 # Number of simulations stage 1
-nsim1=1000
+nsim1=100
 
 # Number of simulations stage 2
 nsim2=100
 
 # Resampling parameter stages 1 and 2
-n.a = .8
+n.a = .9
 
 # Seed for reproducibility
 seed = 1729
 
 # Matching parameters stage 1
-X.mtc1=c("ymatch","hh_size","hh_head_age") # nearest neighbor search variables
-don.vars1=c("mpce_sp_def_ind") #variables to be imputed
+X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variables
+don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
 
-# Matching parameters stage 2
-X.mtc2=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
-don.vars2=c("ratio") #variables to be imputed
+# Matching parameters stage 2: HHS w income
+X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
+don.vars2.0=c("ratio_tot","share_23") #variables to be imputed
 
-# Statistic to be used to ensemble simulations in stage 2
-use_stat="median" #alternatively: mean, median geometric_mean
+# Matching parameters stage 2: HHS w/o income
+X.mtc2.1=c("ymatch","hhsize","age_hhh") # nearest neighbor search variables
+don.vars2.1=c("welfare23","rnlincpc23") #variables to be imputed
 
-# Type of model: "match" is PMM-style and "pred" is MI-style
-use_mod="match"  
-
-# Parameters to convert vectors in 2022 prices to 2021 PPP
-cpi21=1.101906
-icp21=19.46895
-
-# International poverty lines in 2021 PPP
-lic=3.0
-lmic=4.2
-umic=8.3
-
+# Parameters to convert vectors in 2019 prices to 2021 PPP
+cpi21=0.88027848 #this is to convert to 2021PPPs
+icp21=58.296108 #set up as in GMD
+# R squared
+compute_r_squared <- function(actual, predicted) {
+    ss_total <- sum((actual - mean(actual))^2)  # Total sum of squares
+    ss_residual <- sum((actual - predicted)^2)  # Residual sum of squares
+    r_squared <- 1 - (ss_residual / ss_total)   # Compute R²
+    return(r_squared)
+}
+######
+geometric_mean <- function(x, na.rm = TRUE) {
+    if (na.rm) {
+        x <- x[!is.na(x)]
+    }
+    if(any(x <= 0)) {
+        stop("All values must be positive to compute the geometric mean.")
+    }
+    exp(mean(log(x)))
+}
 # Run the R scripts
-
 #Stage 1
-source(file.path(path, "Code/00-Stage 1-Clean.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/01-Stage 1-Simulation.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/02-Stage 1-Ensemble.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/03-Stage 1-Outputs.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/04-Stage 2-Simulation.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/05-Stage 2-Ensemble.R"),chdir = TRUE, encoding = "UTF-8")
-source(file.path(path, "Code/06-Stage 2-Outputs.R"),chdir = TRUE, encoding = "UTF-8")
+source(file.path(path, "Code/00-Stage 1-Clean.R"))
+source(file.path(path, "Code/01-Stage 1-Simulation.R"))
+source(file.path(path, "Code/02-Stage 1-Ensemble.R"))
+source(file.path(path, "Code/03-Stage 1-Outputs.R"))
+source(file.path(path, "Code/04-Stage 2-Simulation2023-XGB v8.R"))
+#source(file.path(path, "India_S2S/Code/04-Stage 2-Simulation2016"))
+
 
