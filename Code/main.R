@@ -1,8 +1,8 @@
 ### Evolution of Post-2011 Poverty in India: A Survey-to-Survey Imputation Approach
 ### Reproducibility Package
 ### This version: Dec 8, 2025
-### Rescale abbreviated consumption 2020-22 in PLFS 
-### to exclude clothing & footwear
+### Rescale abbreviated consumption 2020-22 in PLFS using delta calculated
+### endogenously by bringing clothing and footwear expenditure in HCES
 ### Author: Jaime Fernandez Romero (jfernandezromero@worldbank.org)
 
 ### Main R Script
@@ -48,7 +48,7 @@ datapath <- "C:/Users/wb553773/OneDrive - WBG/Stats Team/IND S2S imputation/Repr
 # Set global parameters
 
 # Number of simulations stage 1
-nsim1=1000
+nsim1=100
 
 # Number of simulations stage 2
 nsim2=100
@@ -61,7 +61,7 @@ seed = 1729
 
 # Matching parameters stage 1
 X.mtc1=c("ymatch","hh_size","hh_head_age") # nearest neighbor search variables
-don.vars1=c("mpce_sp_def_ind") #variables to be imputed
+don.vars1=c("shr_clothing","mpce_sp_def_ind") #variables to be imputed
 
 # Matching parameters stage 2
 X.mtc2=c("ymatch","hh_size","hhb_year") # nearest neighbor search variables
@@ -89,9 +89,9 @@ umic=8.3
 # Evidence from a Repeated Experiment in Indonesia. Fiscal Studies, 30(3/4),
 # 391–417. http://www.jstor.org/stable/24440125
 
-delta=0.345 # Pradhan (2009, p. 406)
+#delta=0.345 # Pradhan (2009, p. 406)
 
-# Run the R scripts
+# Run R scripts
 
 #Stage 1
 source(file.path(path, "Code/00-Stage 1-Clean.R"),chdir = TRUE, encoding = "UTF-8")

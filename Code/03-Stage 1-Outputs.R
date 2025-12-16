@@ -5,34 +5,110 @@
 #2022 HCES official and PLFS abbreviated consumption density plot
 plfs=read_dta(paste0(datapath,
      "/Data/Stage 2/Cleaned/IND_2022_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta"))
+plfs.imp=subset(data.rec2,select=c(hhid,shr_clothing_plfs,shr_clothing_hces,mpce_sp_def_ind))
+plfs=merge(plfs,plfs.imp,all.x = TRUE, by="hhid")
 plfs$survey="PLFS"
 plfs = plfs %>%
-  mutate(consumption_pc_adj=consumption_pc_adj*(1-shr_clothing*delta/(1+delta)),
-         log_consumption_pc_adj = log(consumption_pc_adj),
+  mutate(delta=(shr_clothing_hces*mpce_sp_def_ind)/(shr_clothing_plfs*consumption_pc_adj)-1,
+         delta=ifelse(delta<Inf,delta,0),
+         delta=ifelse(delta<0,0,delta),
+         delta=ifelse(delta>1,1,delta),
+         consumption_pc_adj_resc=consumption_pc_adj*(1-shr_clothing*delta/(1+delta)),
+         log_consumption_pc_adj_resc = log(consumption_pc_adj_resc+1),
+         log_consumption_pc_adj = log(consumption_pc_adj+1),
          weight=weight*hh_size) %>%
-  rename(welfare=log_consumption_pc_adj)
+  rename(welfare=consumption_pc_adj)
+
+plfs.resc = plfs %>%
+  select(consumption_pc_adj_resc,weight) %>%
+  mutate(survey="PLFS_resc") %>%
+  rename(welfare = consumption_pc_adj_resc)
 
 hces=read_dta(paste0(datapath,
           "/Data/Stage 1/Cleaned/HCES22_s2s.dta"))
 hces$survey="HCES"
 hces = hces %>%
-  rename(welfare=mpce_sp_def_ind, weight=pop_wgt) %>%
-  mutate(welfare=log(welfare))
-
+  rename(welfare=mpce_sp_def_ind, weight=pop_wgt)
+  
 df=rbind(subset(hces,select=c(survey,welfare,weight)),
-         subset(plfs,select=c(survey,welfare,weight)))
+         subset(plfs,select=c(survey,welfare,weight)),plfs.resc)
 
-ggplot(na.omit(df), aes(x = welfare, weight = weight,
+ggplot(na.omit(df), aes(x = log(welfare+1), weight = weight,
                         fill = survey)) +
   geom_density(alpha = 0.4, adjust=1.5) +
   labs(x = "Log Consumption (2022 prices, spatially adjusted)",
        y = "Density",
-       title = "Official (HCES) and Abbreviated (PLFS, rescaled) Log Consumption Aggregate (2022-23)")
+       title = "Official (HCES) and Abbreviated (PLFS, actual and rescaled) Log Consumption Aggregate (2022-23)")+
+  xlim(c(6,11))
 
 ggsave(paste(path,
              "/Outputs/Main/Figures/Figure 3.png",sep=""),
        width = 20, height = 10, units = "cm")
-rm(plfs,hces)
+
+
+####Figure 3 ECDF####
+
+df_ecdf <- na.omit(df) %>%
+  group_by(survey) %>%
+  arrange(welfare=log(welfare+1)) %>%
+  mutate(cum_weight = cumsum(weight),
+         total_weight = sum(weight),
+         ecdf = cum_weight / total_weight)
+
+
+ggplot(df_ecdf, aes(x = log(welfare+1), y = ecdf, color = survey)) +
+  geom_step() +
+  labs(x = "Log Consumption",
+       y = "Density",
+       title = "Official (HCES) and Abbreviated (PLFS, actual and rescaled) Log Consumption Aggregate (2022-23)")+
+  xlim(c(6,11))
+  
+ggsave(paste(path,
+             "/Outputs/Main/Figures/Figure 3 ecdf.png",sep=""),
+       width = 20, height = 10, units = "cm")
+
+rm(plfs,hces,plfs.imp,plfs.resc,df,df_ecdf)
+
+####Figure unnumbered for Annex ####
+####Delta and Share of Clothing###
+df <- plfs %>%
+  mutate(
+    decile = xtile(welfare, w = weight, n = 10)
+  )
+
+decile_stats <- df %>%
+  filter(!is.na(decile)) %>%
+  group_by(decile) %>%
+  dplyr::summarize(
+    w_mean_delta = wtd.mean(delta, weight, na.rm = TRUE),
+    w_median_delta = Hmisc::wtd.quantile(delta, weight,probs=0.5,na.rm = TRUE),
+    w_mean_share = wtd.mean(shr_clothing_plfs, weight, na.rm = TRUE),
+    w_median_share = Hmisc::wtd.quantile(shr_clothing_plfs,probs=0.5, weight,na.rm = TRUE)
+  )
+
+decile_stats_long_delta <- decile_stats %>%
+  tidyr::pivot_longer(
+    cols = c(w_mean_delta,  w_mean_share),
+    names_to = "stat",
+    values_to = "value"
+  )
+
+ggplot(decile_stats_long_delta, aes(x = decile, y = value, color = stat)) +
+  geom_line(size = 1.2) +
+  geom_point() +
+  scale_x_continuous(breaks = 1:10) +
+  labs(
+    x = "Decile of abbreviated consumption",
+    y = "Delta / Share of Clothing & Footwear",
+    color = "",
+    title = "Delta and Share of Clothing & Footwear Across Deciles"
+  ) +
+  theme_minimal()
+
+ggsave(paste(path,
+             "/Outputs/Main/Figures/Figure X delta and share clothing.png",sep=""),
+       width = 20, height = 10, units = "cm")
+rm(plfs,hces,plfs.imp,plfs.resc,df,df_ecdf,decile_stats_long_delta, decile_stats)
 
 ####Figure 4####
 years <- c(2017:2022)
@@ -40,10 +116,6 @@ for (year in years) {
   plfs.rec=read_dta(paste(datapath,
              "/Data/Stage 2/Cleaned/IND_",year,"_PLFS_v01_M_v01_A_s2s_PLFS_to_PLFS.dta",sep="")) 
   plfs.rec$log_labor_pc_adj=log(plfs.rec$total_labor_pc_adj+1)
-  if(year>=2020){
-    plfs.rec$consumption_pc_adj=with(plfs.rec,
-                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
-  }
   plfs.rec$log_consumption_pc_adj=log(plfs.rec$consumption_pc_adj+1)
   plfs.rec$pop_wgt=with(plfs.rec,weight*hh_size)
   assign(paste0("data", year), plfs.rec)
@@ -548,7 +620,7 @@ plfs.don=read_dta(paste(datapath,
 #We bring the dataset containing the imputed consumption
 plfs.imp=read_dta(paste(datapath,
           "/Data/Stage 1/Final/Imputed_PLFS_22_match.dta",sep=""))
-plfs.imp=subset(plfs.imp,select=c(hhid,mpce_sp_def_ind))
+plfs.imp=subset(plfs.imp,select=c(hhid,mpce_sp_def_ind,shr_clothing_plfs,shr_clothing_hces))
 plfs.don=merge(plfs.don,plfs.imp,by="hhid",all.x=TRUE)
 rm(plfs.imp)
 plfs.don=subset(plfs.don,!is.na(mpce_sp_def_ind))
@@ -557,10 +629,15 @@ plfs.don=subset(plfs.don,!is.na(mpce_sp_def_ind))
 #abbreviated consumption available in the PLFS.
 
 #New in this version: rescale abbreviated consumption
-plfs.don$consumption_pc_adj=with(plfs.don,
-                      consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
-plfs.don$ratio = with(plfs.don,
-                      mpce_sp_def_ind/consumption_pc_adj)
+plfs.don = plfs.don %>%
+  mutate(delta=(shr_clothing_hces*mpce_sp_def_ind)/(shr_clothing_plfs*consumption_pc_adj)-1,
+         delta=ifelse(delta<Inf,delta,0),
+         delta=ifelse(delta<0,0,delta),
+         delta=ifelse(delta>1,1,delta),
+         consumption_pc_adj_resc=consumption_pc_adj*(1-shr_clothing*delta/(1+delta)),
+         ratio = mpce_sp_def_ind/consumption_pc_adj,
+         ratio.r = mpce_sp_def_ind/consumption_pc_adj_resc)
+
 
 ### Figure 12####
 
@@ -571,7 +648,7 @@ plfs.don$quintile=xtile(plfs.don$mpce_sp_def_ind,n=5,wt=plfs.don$weight)
 plfs.don$quintile=as.factor(plfs.don$quintile)
 plfs.don$pop_wgt=with(plfs.don,hh_size * weight)
 
-ggplot(plfs.don, aes(x = ratio, y = fct_rev(quintile), 
+ggplot(plfs.don, aes(x = ratio.r, y = fct_rev(quintile), 
                      weight = pop_wgt, fill = quintile)) +
   geom_density_ridges(alpha = 0.5, scale = 1.5, rel_min_height = 0.01) +
   labs(x = "Ratio",
@@ -590,7 +667,7 @@ ggsave(paste(path,
 #HEATMAP OF DECILES
 
 plfs.don$decile_mmrp=xtile(plfs.don$mpce_sp_def_ind,n=10,wt=plfs.don$pop_wgt)
-plfs.don$decile_abbr=xtile(plfs.don$consumption_pc_adj,n=10,wt=plfs.don$pop_wgt)
+plfs.don$decile_abbr=xtile(plfs.don$consumption_pc_adj_resc,n=10,wt=plfs.don$pop_wgt)
 
 des <- svydesign(ids = ~1, weights = ~pop_wgt, data = plfs.don)
 
@@ -612,7 +689,7 @@ ggplot(heatmap_data, aes(x = decile_mmrp, y = decile_abbr, fill = rel_freq)) +
   labs(
     title = "Cross-Decile Heatmap",
     x = "Deciles of imputed consumption",
-    y = "Deciles of abbreviated consumption",
+    y = "Deciles of abbreviated consumption (rescaled)",
     fill = "Proportion of population"
   ) +
   theme_minimal()

@@ -59,6 +59,8 @@ formula.mod.b <- as.formula(paste("consumption_pc ~",
   simcons_match=subset(data.rec,sel=c(hhid))
   #prediction
   simcons_pred=subset(data.rec,sel=c(hhid))
+  #share_clothing
+  simcons_cloth=subset(data.rec,sel=c(hhid))
   #R squared
   r2=c()
   md=c()
@@ -178,15 +180,21 @@ formula.mod.b <- as.formula(paste("consumption_pc ~",
                             match.vars=X.mtc, don.class=group.v,
                             dist.fun="Mahalanobis",
                             cut.don="min")
-  
+  samp.btemp$shr_clothing=NULL
   #Create fused dataset
   fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                           mtc.ids=rnd.2$mtc.ids,
                           z.vars=don.vars)  
-  fA.wrnd = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
-  names(fA.wrnd)[2]=paste("mpce_sp_def_ind_",j,sep="")
-  simcons_match=merge(simcons_match,fA.wrnd,by="hhid")
-  rm(samp.atemp,samp.btemp,fA.wrnd,rnd.2)
+  #consumption
+  fA.wrnd.c = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
+  names(fA.wrnd.c)[2]=paste("mpce_sp_def_ind_",j,sep="")
+  simcons_match=merge(simcons_match,fA.wrnd.c,by="hhid")
+  #share_clothing
+  fA.wrnd.s = fA.wrnd[,c("hhid","shr_clothing")]
+  names(fA.wrnd.s)[2]=paste("shr_clothing_",j,sep="")
+  simcons_cloth=merge(simcons_cloth,fA.wrnd.s,by="hhid")
+  
+  rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.s,rnd.2)
   }
 
 stopCluster(cl)
@@ -229,6 +237,20 @@ write.csv(simcons_pred,file=paste(datapath,
           row.names = FALSE)
 saveRDS(simcons_pred,file=paste(datapath,
       "/Data/Stage 1/Final/Simulations22_pred_",sim,".rds",sep=""))
+
+#Ensembles share clothing
+simcons_cloth$shr_clothing_mean=apply(simcons_cloth[,-1],
+                                         1,mean,na.rm=TRUE)
+simcons_cloth$shr_clothing_median=apply(simcons_cloth[,-1],
+                                           1,median,na.rm=TRUE)
+#simcons_cloth$shr_clothing_geom=apply(simcons_cloth[,-1],
+#                                         1,geometric_mean,na.rm=TRUE)
+write.csv(simcons_cloth,file=paste(datapath,
+                                   "/Data/Stage 1/Final/Simulations22_share_",sim,".csv",sep=""),
+          row.names = FALSE)
+saveRDS(simcons_cloth,file=paste(datapath,
+                                 "/Data/Stage 1/Final/Simulations22_share_",sim,".rds",sep=""))
+
 
 #Ensemble coefficients
 coefs$coef=apply(coefs, 1,mean,na.rm=TRUE)

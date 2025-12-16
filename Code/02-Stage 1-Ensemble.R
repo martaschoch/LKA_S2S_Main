@@ -19,6 +19,9 @@ simcons_match <- simcons_match %>%
 simcons_pred <- simcons_pred %>%
   left_join(data.rec %>% select(hhid, state, urb), by = "hhid")
 
+simcons_cloth <- simcons_cloth %>%
+  left_join(data.rec %>% select(hhid, state, urb), by = "hhid")
+
 # Missing values report
 missing_report.match <- simcons_match %>%
   summarise(across(everything(), ~ mean(is.na(.)) * 100)) %>%
@@ -42,8 +45,10 @@ simcons_match <- as.data.frame(mapply(function(x, y) {
 original_data <- list()
 sim_data_match <- list()
 sim_data_pred <- list()
+sim_data_cloth <- list()
 hhid_match <- list()
 hhid_pred <- list()
+hhid_cloth <- list()
 
 #Double check missing values in data.don
 #data.don=na.omit(data.don)
@@ -80,12 +85,25 @@ foreach (i = c(1:25, 27:37)) %do% {
       as.matrix()
     
     sim_data_pred[[paste(i, a, sep = "_")]] <- pred_matrix_pred
+    
+    # Clothing Share: Extract `hhid` first, then filter numeric variables
+    cloth_filtered <- simcons_cloth %>%
+      filter(state == i & urb == a)  
+    
+    hhid_cloth[[paste(i, a, sep = "_")]] <- cloth_filtered$hhid  # Store `hhid`
+    
+    cloth_matrix_match <- cloth_filtered %>%  
+      select(starts_with("shr_")) %>%  # Only numeric values
+      as.matrix()
+    
+    sim_data_cloth[[paste(i, a, sep = "_")]] <- cloth_matrix_match
   }
 }
 
 # Store predicted vectors for each state-sector
 sel_predictions_match <- list()
 sel_predictions_pred <- list()
+sel_predictions_cloth <- list()
 closest_index_match <- list()
 closest_index_pred <- list()
 
@@ -108,6 +126,11 @@ for (key in names(original_data)) {
     mpce_sp_def_ind = sim_data_match[[key]][, closest_index_match[[key]]]
   )
   
+  sel_predictions_cloth[[key]] <- data.frame(
+    hhid = hhid_cloth[[key]],  # Merge with hhid
+    shr_clothing = sim_data_cloth[[key]][, closest_index_match[[key]]]
+  )
+  
   sel_predictions_pred[[key]] <- data.frame(
     hhid = hhid_pred[[key]],  # Merge with hhid
     mpce_sp_def_ind = sim_data_pred[[key]][, closest_index_pred[[key]]]
@@ -117,6 +140,7 @@ for (key in names(original_data)) {
 # Concatenate the selected vectors into a single final prediction dataset
 final_match_df <- do.call(rbind, sel_predictions_match)  # Merge all into a dataframe
 final_pred_df <- do.call(rbind, sel_predictions_pred)  
+final_cloth_df <- do.call(rbind, sel_predictions_cloth)
 
 closest_index_match <- unlist(closest_index_match)
 closest_index_pred <- unlist(closest_index_pred)
@@ -128,11 +152,21 @@ head(final_pred_df)
 
 #Keep prediction-based imputation
 data.rec2=merge(data.rec,final_pred_df,by="hhid",all.x = TRUE)
-write_dta(data.rec,paste(datapath,
+write_dta(data.rec2,paste(datapath,
      "/Data/Stage 1/Final/Imputed_PLFS_22_pred.dta",sep=""))
 
 
 #Keep matching-based imputation using distributional distance
+data.rec <- data.rec %>%
+  rename (shr_clothing_plfs = shr_clothing )
+
+# For more stability (avoid extreme values) ins share of clothing, use median instead 
+# of the simulation that reproduces more accurately the mmrp distribution
+final_cloth_df = subset(simcons_cloth,select=c(hhid,shr_clothing_median))
+
 data.rec2=merge(data.rec,final_match_df,by="hhid",all.x = TRUE)
+data.rec2=merge(data.rec2,final_cloth_df,by="hhid",all.x = TRUE)
+data.rec2 <- data.rec2 %>%
+  rename ( shr_clothing_hces = shr_clothing_median)
 write_dta(data.rec2,paste(datapath,
       "/Data/Stage 1/Final/Imputed_PLFS_22_match.dta",sep=""))

@@ -280,7 +280,9 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
     samp.atemp=data.frame(samp.atemp)
     row.names(samp.btemp)=as.character(seq(1:nrow(samp.btemp)))
     row.names(samp.atemp)=as.character(seq(1:nrow(samp.atemp)))
-    
+    if (year<2020) {
+      don.vars2="ratio.r"
+    }
     #Matching using lasso predictions and random nearest neighbor distance hot deck (D'Orazio, 2017)
     rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                               match.vars=X.mtc2, don.class=group.v,
@@ -291,8 +293,13 @@ foreach (a = c(0,1)) %do% {  # 0: HHs with income information, 1 otherwise
     fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                             mtc.ids=rnd.2$mtc.ids,
                             z.vars=don.vars2) 
-    fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+    if (year<2020) {
+      fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                     ratio.r*consumption_pc_adj)
+    } else {
+      fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
                                    ratio*consumption_pc_adj)
+    }
     fA.wrnd = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
     names(fA.wrnd)[2]=paste("mpce_sp_def_ind_",j,sep="")
     simcons=merge(simcons,fA.wrnd,by="hhid")
@@ -349,7 +356,7 @@ rm(year,df.match,df.pred,plfs.rec)
 #OTHER YEARS AFTER 2017#
 ########################
 #starting the 2nd year, we use the models previously trained###
-years=2018:2021
+years=2020:2021
 
 # parallel set
 cl <- makeCluster(length(years))
@@ -369,10 +376,6 @@ plfs.rec=read_dta(paste(datapath,
      sep="")) 
 #create sequential IDs
 plfs.rec$hidseq=seq(1:nrow(plfs.rec))
-if(year>=2020){
-  plfs.rec$consumption_pc_adj=with(plfs.rec,
-              consumption_pc_adj*(1-shr_clothing*delta/(1+delta)))
-}
 plfs.rec=subset(plfs.rec,!is.na(consumption_pc_adj))
 plfs.rec$hh_type <- as.factor(plfs.rec$hh_type)
 plfs.rec$state <- as.factor(plfs.rec$state)
@@ -556,18 +559,28 @@ inc_vars = c("shr_regwages","shr_caswages","shr_selfinc",
         row.names(samp.btemp)=as.character(seq(1:nrow(samp.btemp)))
         row.names(samp.atemp)=as.character(seq(1:nrow(samp.atemp)))
         
+        if (year<2020) {
+          don.vars2="ratio.r"
+        } else {
+          don.vars2="ratio"
+        }
         #Matching using lasso predictions and random nearest neighbor distance hot deck (D'Orazio, 2017)
         rnd.2 <- RANDwNND.hotdeck(data.rec=samp.btemp, data.don=samp.atemp,
                                   match.vars=X.mtc2, don.class=group.v,
                                   dist.fun="Euclidean",
                                   cut.don="min")
         
-        #Create fused dataset 
+        #Create fused dataset
         fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                                 mtc.ids=rnd.2$mtc.ids,
                                 z.vars=don.vars2) 
-        fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
-                                       ratio*consumption_pc_adj)
+        if (year<2020) {
+          fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                         ratio.r*consumption_pc_adj)
+        } else {
+          fA.wrnd$mpce_sp_def_ind = with(fA.wrnd,
+                                         ratio*consumption_pc_adj)
+        }
         fA.wrnd = fA.wrnd[,c("hhid","mpce_sp_def_ind")]
         names(fA.wrnd)[2]=paste("mpce_sp_def_ind_",j,sep="")
         simcons=merge(simcons,fA.wrnd,by="hhid")
