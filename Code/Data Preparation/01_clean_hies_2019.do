@@ -23,19 +23,19 @@ global hies2019 $data/HIES
 ****************************************************
 //Deflators 
 ****************************************************
-import excel $data/NCPI_series.xlsx, sheet("data") firstrow clear 
+import excel using "$data/NCPI_series.xlsx", sheet("data") firstrow clear 
 
-save $data/NCPI_series, replace 
+save "$data/NCPI_series", replace 
 
 *************************************************************
 //HIES 2019: NON-LABOR INCOME AGGREGATES AT HOUSEHOLD LEVEL 
 *************************************************************
 // Harmonized non-labor income components from 2019 HIES  
-use $hies2019/SARMD/HIES_2019_inc
+use "$hies2019/SARMD/HIES_2019_inc"
 
 keep hhid pid ijubi icap itranext_m inocct_m ipcf
 
-save $hies2019/SARMD/HIES_2019_inc_hh , replace 
+save "$hies2019/SARMD/HIES_2019_inc_hh" , replace 
 
 /* I think we can use the SARMD income total
 *************************************************************
@@ -57,10 +57,10 @@ use "$hies2019/RAW/LKA_2019_HIES_v01_M", clear
 merge m:1 district sector  psu snumber hhno using $hies2019/RAW/rundata/aggregates_clean , nogen keepusing(hhexppm hhincomepm)
 */
 // Merge consumption aggregate from harmonized file 
-merge 1:1 pid hhid using $hies2019/SARMD/HIES_2019 , nogen keepusing(welfare subnatid*)
+merge 1:1 pid hhid using "$hies2019/SARMD/HIES_2019" , nogen keepusing(welfare subnatid*)
 
 // Merge non-labor income components from harmonized file 
-merge 1:1 pid hhid using $hies2019/SARMD/HIES_2019_inc_hh  , nogen 
+merge 1:1 pid hhid using "$hies2019/SARMD/HIES_2019_inc_hh"  , nogen 
 
 
 
@@ -542,7 +542,7 @@ foreach var in pensions capital remittances inocct_m{
 tab year 
 tab month
 
-merge m:1 year month using $data/NCPI_series, keepusing(cpi_base2013) 
+merge m:1 year month using "$data/NCPI_series", keepusing(cpi_base2013) 
 keep if _merge==3 
 drop _merge 
 
@@ -658,7 +658,7 @@ tabstat sh_icapyl19 if rpcinc1>0, by(quintileyl19)
 //2023 : already in 2019 prices, only need to spatially deflate 
 *******************************************************************************
 
-merge 1:1 district sector month psu snumber hhno nhh result person_serial_no  using $data/inc_microsim23.dta, nogen
+merge 1:1 district sector month psu snumber hhno nhh result person_serial_no  using "$data/inc_microsim23.dta", nogen
 
 bys hhid: egen hh_pensions23	 	= total(ijubi23) , missing
 bys hhid: egen hh_capital23	 		= total(icap23) , missing
