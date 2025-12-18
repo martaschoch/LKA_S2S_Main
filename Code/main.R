@@ -37,7 +37,7 @@ lapply(packages, require, character.only = TRUE)
 #path <- "C:/Users/wb562318/Github"
 #datapath <- "C:/Users/wb562318/OneDrive - WBG/Documents/POV-SAR/SL/PA/Analysis/Data/"
 
-path <- "C:/Users/wb553773/Github/India_S2S"
+codepath <- "C:/Users/wb553773/Github/LKA_S2S_main"
 datapath <-"C:/Users/wb553773/WBG/Marta Schoch - Analysis/Data/"
 outpath <- "C:/Users/wb553773/WBG/Marta Schoch - Analysis/Out/s2s/"
 
@@ -60,7 +60,7 @@ X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variab
 don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
 
 # Year stage 2
-year=2023
+year=2023  #or 2016
 
 # Matching parameters stage 2: HHS w income
 X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
@@ -92,15 +92,16 @@ geometric_mean <- function(x, na.rm = TRUE) {
 }
 # Run the R scripts
 #Stage 1
-source(file.path(path, "Code/00-Stage 1-Clean.R"))
-source(file.path(path, "Code/01-Stage 1-Simulation.R"))
-source(file.path(path, "Code/02-Stage 1-Ensemble.R"))
-source(file.path(path, "Code/03-Stage 1-Outputs.R"))
+source(file.path(codepath, "Code/00-Stage 1-Clean.R"))
+source(file.path(codepath, "Code/01-Stage 1-Simulation.R"))
+source(file.path(codepath, "Code/02-Stage 1-Ensemble.R"))
+source(file.path(codepath, "Code/03-Stage 1-Outputs.R"))
+#Stage 2
 if (year==2023){
-  source(file.path(path, "Code/04-Stage 2-Simulation2023-XGB v8.R"))
+  source(file.path(codepath, "Code/04-Stage 2-Simulation2023-XGB.R"))
 } else {
-  source(file.path(path, "Code/04-Stage 2-Simulation2016-XGB v8.R"))
+  source(file.path(codepath, "Code/04-Stage 2-Simulation2016-XGB.R"))
 }
-#source(file.path(path, "India_S2S/Code/04-Stage 2-Simulation2016"))
+source(file.path(codepath, "Code/05-Stage 2-Outputs.R"))
 
 

@@ -1,7 +1,6 @@
 ***********************************************************************
 *	Clean 2019 HIES 
 ***********************************************************************
-clear
 set more off
 
 //data folders 
@@ -14,12 +13,6 @@ global output ../output
 global data "C:\Users\User\OneDrive - University of Moratuwa\WB\Sri Lanka - poverty\LFS HIES SWIFT\data"
 */ 
 
-//Marta 
-global data "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Data"
-global lfs2019  $data/LFS
-global hies2019 $data/HIES
-
-
 ****************************************************
 //Deflators 
 ****************************************************
@@ -31,11 +24,11 @@ save "$data/NCPI_series", replace
 //HIES 2019: NON-LABOR INCOME AGGREGATES AT HOUSEHOLD LEVEL 
 *************************************************************
 // Harmonized non-labor income components from 2019 HIES  
-use "$hies2019/SARMD/HIES_2019_inc"
+use "$hies/SARMD/HIES_2019_inc"
 
 keep hhid pid ijubi icap itranext_m inocct_m ipcf
 
-save "$hies2019/SARMD/HIES_2019_inc_hh" , replace 
+save "$hies/SARMD/HIES_2019_inc_hh" , replace 
 
 /* I think we can use the SARMD income total
 *************************************************************
@@ -51,16 +44,16 @@ save  $hies2019/RAW/rundata/aggregates_clean, replace
 //COMBINE ALL DATASETS  
 *************************************************************
 
-use "$hies2019/RAW/LKA_2019_HIES_v01_M", clear 
+use "$hies/RAW/LKA_2019_HIES_v01_M", clear 
 /*
 // Merge income and consumption aggregates from NSO 
 merge m:1 district sector  psu snumber hhno using $hies2019/RAW/rundata/aggregates_clean , nogen keepusing(hhexppm hhincomepm)
 */
 // Merge consumption aggregate from harmonized file 
-merge 1:1 pid hhid using "$hies2019/SARMD/HIES_2019" , nogen keepusing(welfare subnatid*)
+merge 1:1 pid hhid using "$hies/SARMD/HIES_2019" , nogen keepusing(welfare subnatid*)
 
 // Merge non-labor income components from harmonized file 
-merge 1:1 pid hhid using "$hies2019/SARMD/HIES_2019_inc_hh"  , nogen 
+merge 1:1 pid hhid using "$hies/SARMD/HIES_2019_inc_hh"  , nogen 
 
 
 
