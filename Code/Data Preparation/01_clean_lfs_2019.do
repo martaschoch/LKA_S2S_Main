@@ -22,7 +22,7 @@ global output "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis
 
 //Clean lfs 2019 
 //import delimited "$lfs2019/2019Annual-Outfile-with-Computer.csv", clear 
-use $lfs2019/RAW/LFS_2019 , clear 
+use "$lfs2019/RAW/LFS_2019" , clear 
 
 * year = Year
 * note: the variable already exists in harmonized form
@@ -651,7 +651,7 @@ sum hh_selfemp_pc 	if hh_selfemp_pc!=0 [aw=weight]
 tab year 
 tab month
 
-merge m:1 year month using $data/NCPI_series, keepusing(cpi_base2013) 
+merge m:1 year month using "$data/NCPI_series", keepusing(cpi_base2013) 
 keep if _merge==3 
 drop _merge 
 

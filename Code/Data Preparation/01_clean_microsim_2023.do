@@ -2,7 +2,11 @@
 //				Prepare Non-Labor Income Vector: Microsim 2023				//
 ********************************************************************************
 //Paths
+//Marta 
 global data "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Data"
+global lfs  $data/LFS
+global hies $data/HIES
+global output "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Out"
 
 
 ********************************************************************
@@ -29,17 +33,17 @@ egen labor_income23_real = rowtotal(inc_selfemp_mon23_real ind_wages2023_real) ,
 
 keep district sector month psu snumber hhno nhh result person_serial_no ind_wages2023_real inc_selfemp_mon23_real labor_income23
 
-save $data/labor_income_microsim23.dta, replace 
+save "$data/labor_income_microsim23.dta", replace 
 
 ********************************************************************
 //			Expenditure: latest sims 
 ********************************************************************
-use $data/MPO_srilanka_AM25.dta , clear 
+use "$data/MPO_srilanka_AM25.dta" , clear 
 gen welfare23 = rpccons23
 
 keep district sector month psu snumber hhno nhh result person_serial_no welfare23
 
-save $data/welfare23 , replace 
+save "$data/welfare23" , replace 
 ********************************************************************
 //			Non-Labor Income 
 ********************************************************************
@@ -404,7 +408,7 @@ keep district sector month psu snumber hhno nhh result person_serial_no ijubi2* 
 
 destring district sector month psu snumber hhno nhh result person_serial_no , replace
 
-save $data/inc_microsim23.dta, replace
+save "$data/inc_microsim23.dta" , replace
 
 
 
