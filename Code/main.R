@@ -28,7 +28,7 @@ for (pkg in packages) {
   }
 }
 
-#renv::restore()
+renv::update()
 
 # Load all packages
 lapply(packages, require, character.only = TRUE)
@@ -58,6 +58,9 @@ seed = 1729
 # Matching parameters stage 1
 X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variables
 don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
+
+# Year stage 2
+year=2023
 
 # Matching parameters stage 2: HHS w income
 X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
@@ -93,7 +96,11 @@ source(file.path(path, "Code/00-Stage 1-Clean.R"))
 source(file.path(path, "Code/01-Stage 1-Simulation.R"))
 source(file.path(path, "Code/02-Stage 1-Ensemble.R"))
 source(file.path(path, "Code/03-Stage 1-Outputs.R"))
-source(file.path(path, "Code/04-Stage 2-Simulation2023-XGB v8.R"))
+if (year==2023){
+  source(file.path(path, "Code/04-Stage 2-Simulation2023-XGB v8.R"))
+} else {
+  source(file.path(path, "Code/04-Stage 2-Simulation2016-XGB v8.R"))
+}
 #source(file.path(path, "India_S2S/Code/04-Stage 2-Simulation2016"))
 
 
