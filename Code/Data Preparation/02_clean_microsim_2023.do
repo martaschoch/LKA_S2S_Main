@@ -2,13 +2,6 @@
 //				Prepare Non-Labor Income Vector: Microsim 2023				//
 ********************************************************************************
 //Paths
-//Marta 
-global data "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Data"
-global lfs  $data/LFS
-global hies $data/HIES
-global output "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Out"
-
-
 ********************************************************************
 //			Labor Income 
 ********************************************************************

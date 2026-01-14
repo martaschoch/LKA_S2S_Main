@@ -1,7 +1,7 @@
 ***********************************************************************
-*	Clean 2023 LFS
+*	Clean 2019 LFS
 ***********************************************************************
-clear
+
 set more off
 
 //data folders 
@@ -14,22 +14,16 @@ global output ../output
 global data "C:\Users\User\OneDrive - University of Moratuwa\WB\Sri Lanka - poverty\LFS HIES SWIFT\data"
 */ 
 
-//Marta 
-global data "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Data"
-global lfs  $data/LFS
-global hies $data/HIES
-global output "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Out"
-
-//Clean lfs 2023 
+//Clean lfs 2019 
 //import delimited "$lfs2019/2019Annual-Outfile-with-Computer.csv", clear 
-use "$lfs/RAW/LFS_2023" , clear 
+use "$lfs/RAW/LFS_2019" , clear 
 
 * year = Year
 * note: the variable already exists in harmonized form
-confirm var ïyear
-
+confirm var year
+tab year 
 * int_year = interview year
-g year = ïyear
+g int_year = year
 
 * int_month = interview month
 g int_month = month
@@ -53,23 +47,25 @@ rename serno pid
 * confirm unique identifiers: hhid + pid
 isid hhid pid
 
+
 * weight = Household weight
-g weight = annual_factor
+g weight = wgt
 
 * relationharm = Relationship to head of household harmonized across all regions
-recode rship (1=1) (2=2) (3=3) (4=4) (5=5) (6/7=7) (9=6) (*=.), g(relationship)
-
+recode rship (1=1) (2=2) (3=3) (4=4) (5=5) (6/7=7) (9=6) (*=.), g(relationharm)
+clonevar relationship=relationharm
 * relationcs = Original relationship to head of household
 label define rship 1 "Head of Household" 2 "Wife / Husband" 3 "Son / Daughter" 4 "Parents" 5 "Other Relative" 6 "Domestic Servant" 7 "Boarder" 9 "Other"
 label values rship rship
 decode rship, g(relationcs)
+tab rship
 
 * household member. All excluding household workers
 *gen hhmember=(relationharm!=7)
-gen hhmember=1 //in HIES, we use all including boarders
+gen hhmember=1 		//in HIES, we use all including boarders
 
 * hsize = Household size, not including household workers
-bys hhid: egen hhsize = total(hhmember)
+bys hhid: egen hhsize=total(hhmember)
 
 * strata = Strata
 confirm var psu_str
@@ -88,20 +84,18 @@ decode province, g(subnatid1)
 replace subnatid1 = string(province) + " - " + subnatid1
 
 * subnatid2 = Subnational ID - second highest level
-label define district 11 "Colombo" 12 "Gampaha" 13 "Kalutara" 21 "Kandy" 22 "Matale" 23 "Nuwara Eliya" 31 "Galle" 32 "Matara" 33 "Hambantota" 41 "Jaffna" 42 "Mannar" 43 "Vavuniya" 44 "Mullaitivu" 45 "Kilinochchi" 51 "Batticaloa" 52 "Ampara" 53 "Trincomalee" 61 "Kurunegala" 62 "Puttalam" 71 "Anuradhapura" 72 "Polonnaruwa" 81 "Badulla" 82 "Moneragala" 91 "Ratnapura" 92 "Kegalle"
-label values district district
-decode district, g(subnatid2)
-replace subnatid2 = string(district) + " - " + subnatid2
-
+encode district_str, g(subnatid2)
 //replace subnatid2 = string(district_str) + " - " + subnatid2
 
 * subnatid3 = Subnational ID - third highest level
 g subnatid3 = ""
 
+
 ********************************************************************************
 	//Demographics 
 ********************************************************************************
 *District dummies
+tab district district_str
 tab district, gen(dist_)
 
 tab sector, gen(sector_)
@@ -357,6 +351,9 @@ replace	lstatus = 2 if mi(lstatus) & ((q47==1 & q48==1) | q47==3)
 replace	lstatus = 3 if mi(lstatus) & q2==2
 
 gen lstat_active=lstatus==1
+gen working_adults = lstatus==1 if labor==1 
+bys hhid: egen num_working_adults = total(working_adults)
+
 
 * empstat - Employment status, primary job (7-day ref period)
 recode q9 (1=2) (4=3) (2=4) (3=5) if lstatus==1, g(empstat)
@@ -364,7 +361,6 @@ replace empstat=1 if empstat==2 & (q14==1 | q14==2)
 label define empstat 1"Public Employee" 2 "Private sector employee" 3 "Family Worker" 4 "Employer" 5 "Self-employed" 
 label values empstat empstat 
 tab empstat, gen(empstat_)
-tab empstat 
 
 tab q16
 gen formal = q16==1  if lstatus==1 
@@ -372,20 +368,14 @@ recode q16 (1=0) (2/3=1) (4=0) , gen (informal)
 tab formal q16
 tab informal q16 
 tabstat informal 
-  
+
 // Will use employment status to better refine income definitions and match LFS definition selfemployed+employer
 gen public 				= empstat ==1 
 gen private 			= empstat ==2
 
-tab empstat private 
-
 gen employee				=empstat<=2 
-tab employee empstat 
-tab employee public 
-tab public formal
-
 gen ownaccount_employer		=empstat>=4 
-gen familyworker			=empstat==3 
+gen familyworker			=empstat==3
 gen employer				=empstat==4 
 gen self_employed           =empstat==5
 
@@ -418,8 +408,6 @@ label define broad_ind 1 "Agri" 2 "Manufacturing (excl construction)" 3 "Constru
 label values broad_industry broad_ind
 
 tab broad_industry, gen(broad_ind_)
-tab broad_industry if male==0
-
 
 ********************************************************************************
 *Occupation
@@ -481,6 +469,9 @@ replace	wage_nc_2 = q46_b_1 * q46_b_2 	if lstatus==1 & ~mi(q46_b_1)
 //replace	wage_nc_2 = q46_c_1 			if lstatus==1 & ~mi(q46_c_1)
 
 gen 	wages_primary 		= wage_nc 
+gen 	wages_sec     = wage_nc_2 
+
+//both primary and secondary 
 egen 	ind_wages			= rowtotal(wage_nc wage_nc_2) , missing  
 
 mdesc ind_wages if lstatus==1  
@@ -521,6 +512,8 @@ sum *_inkind_month, d //only 292 from in kind secondary, but sufficient mass fro
 *Income from self-employment - not sure if this is net of input costs
 ********************************************************************************
 gen 	inc_selfemp_primary = q45_c_1 
+gen 	inc_selfemp_sec = q46_c_1 
+
 egen 	inc_selfemp_mon= rowtotal (q45_c_1 q46_c_1) , missing 
 
 ********************************************************************************
@@ -531,6 +524,7 @@ egen labor_income_total = rowtotal (inc_paidemp_mon inc_selfemp_mon) 	, missing
 
 egen labor_income_nc 			= rowtotal (ind_wages inc_selfemp_mon) 	, missing  //non-contributory 
 egen labor_income_primary_nc 	= rowtotal (wages_primary inc_selfemp_primary) 	, missing  //non-contributory 
+egen labor_income_sec_nc 	= rowtotal (wages_sec inc_selfemp_sec) 	, missing  //non-contributory 
 
 
 * wage_nc_week - Wage payment adjusted to 1 week, primary job, excl. bonuses, etc. (7-day ref period)
@@ -538,16 +532,24 @@ g		wage_nc_week = q45_a_1 if lstatus==1 & ~mi(q45_a_1)
 replace	wage_nc_week = q45_b_1 * q45_b_2 if lstatus==1 & ~mi(q45_b_1)
 replace	wage_nc_week = q45_c_1 if lstatus==1 & ~mi(q45_c_1)
 
-gen hourly_wage= wage_nc_week / q20
+winsor2 wage_nc_week, cuts(1 99) by(int_year)
+winsor2 q20, cuts(1 99) by(int_year)
+
+gen hourly_wage=  wage_nc_week_w / q20_w
 replace hourly_wage=. if lstatus!=1
-replace hourly_wage=. if lstatus==1 & wage_nc_week==0
+replace hourly_wage=. if lstatus==1 & wage_nc_week_w==0
 label var hourly_wage "Hourly wage"
 
 gen lnyl = ln(hourly_wage) 
-/*two kdensity lnyl if employee==1 & informal==1  & private==1  || kdensity lnyl if employee==1 & public==1 ///
+two kdensity lnyl if employee==1 & informal==1  & private==1  || kdensity lnyl if employee==1 & public==1 ///
 || kdensity lnyl if employee==1 & formal==1 & private==1 , legend(label(1 "Informal Employee") label(2 "Formal, Public") label(3 "Formal, Private")) ytitle("Log Hourly Wage") scheme(stcolor)
-graph export "$output/s2s/loghourlywage2023.png", as(png) name("Graph") replace 
-*/
+graph export "$output/s2s/loghourlywage2019.png", as(png) name("Graph") replace 
+
+
+********************************************************************************
+*Dummies for income source  
+********************************************************************************
+
 gen has_wages    		= ind_wages>0 & ind_wages!=. 
 gen has_emp_inc  		= inc_paidemp_mon>0 & inc_paidemp_mon!=.
 gen has_selfemp_inc 	= inc_selfemp_mon>0 & inc_selfemp_mon!=. 
@@ -561,14 +563,26 @@ corr has_wages employee
 
 bysort 	hhid: egen hh_inc_paidemp	=	total    (inc_paidemp_mon) 	, missing 
 bysort 	hhid: egen hh_wages			=	total (ind_wages)  	, missing 
-bysort 	hhid: egen hh_wages_primary	=	total (wages_primary)  	, missing 
-bysort  hhid: egen hh_inc_selfemp_primary = 	total (inc_selfemp_primary)    , missing 
 
 bysort 	hhid: egen hh_inc_selfemp	=	total    	(inc_selfemp_mon) 	, missing 
 
-bys 	hhid: egen hh_mon_inc 	= total   	 (labor_income_total) , missing 
+bys 	hhid: egen hh_mon_inc 		= total   	 (labor_income_total) , missing 
 bys 	hhid: egen hh_mon_inc_nc 	= total 		(labor_income_nc)  , missing 
-bys 	hhid: egen hh_mon_inc_primary_nc = total (labor_income_primary_nc)  , missing 
+
+********************************************************************************
+*Primary Employment Totals  
+********************************************************************************
+
+bys	hhid: egen hh_wages_primary	=	total (wages_primary)  	, missing 
+bys hhid: egen hh_inc_selfemp_primary = 	total (inc_selfemp_primary)    , missing 
+bys hhid: egen hh_mon_inc_primary_nc = total (labor_income_primary_nc)  , missing 
+
+********************************************************************************
+*Secondary Employment Totals  
+********************************************************************************
+bys hhid: egen hh_wages_sec 		=	total (wages_sec)  		, missing 
+bys hhid: egen hh_inc_selfemp_sec 	= 	total (inc_selfemp_sec)    	, missing 
+bys hhid: egen hh_mon_inc_sec_nc 	= 	total (labor_income_sec_nc) , missing 
 
 ********************************************************************************
 //All in per-capita terms 
@@ -576,19 +590,33 @@ bys 	hhid: egen hh_mon_inc_primary_nc = total (labor_income_primary_nc)  , missi
 
 gen hh_paidemp_pc = hh_inc_paidemp / 	hhsize 
 gen hh_wages_pc	  = hh_wages       /	hhsize 
-gen hh_wages_primary_pc = hh_wages_primary / hhsize 
-
 gen hh_selfemp_pc = hh_inc_selfemp / 	hhsize 
-gen hh_selfemp_primary_pc = hh_inc_selfemp_primary /hhsize 
 
 gen	hh_inc_pc	 = hh_mon_inc/hhsize 
 gen	hh_inc_nc_pc = hh_mon_inc_nc/hhsize 
-gen	hh_inc_primary_nc_pc = hh_mon_inc_primary_nc/hhsize 
+
+
+//Primary Occ
+gen hh_inc_primary_nc_pc=hh_mon_inc_primary_nc  /hhsize
+gen hh_selfemp_primary_pc = hh_inc_selfemp_primary /hhsize 
+gen hh_wages_primary_pc = hh_wages_primary 		/ hhsize 
+
+mdesc hh_inc_primary_nc_pc hh_selfemp_primary_pc hh_wages_primary_pc
+sum  hh_inc_primary_nc_pc hh_selfemp_primary_pc hh_wages_primary_pc
+
+//Secondary Occ
+gen hh_inc_sec_nc_pc	=	hh_mon_inc_sec_nc  		/hhsize
+gen hh_selfemp_sec_pc 	=	hh_inc_selfemp_sec 		/hhsize 
+gen hh_wages_sec_pc		= 	hh_wages_sec			/ hhsize 
+
 
 //Shares of labor income from primary occupation pc : check
 
 gen sh_wages_pc 	= hh_wages_primary_pc /  hh_inc_primary_nc_pc
 gen sh_selfemp_pc   = hh_selfemp_primary_pc / hh_inc_primary_nc_pc
+
+gen sh_wages2_pc 	= hh_wages_sec_pc /  hh_inc_sec_nc_pc
+gen sh_selfemp2_pc   = hh_selfemp_sec_pc / hh_inc_sec_nc_pc
 
 gen have_wages    		= hh_wages>0 & hh_wages!=. 
 gen have_emp_inc  		= hh_inc_pc>0 & hh_inc_pc!=.
@@ -610,40 +638,40 @@ sum hh_paidemp_pc 	if hh_paidemp_pc!=0 [aw=weight]
 sum hh_selfemp_pc 	if hh_selfemp_pc!=0 [aw=weight]
 
 
+
 ********************************************************************************
 *Temporal and Spatial Deflation  
 ********************************************************************************
 tab year 
 tab month
 
-merge m:1 year month using "$data/NCPI_series" , keepusing(cpi_base2013 avg_2019 avg_2023) 
+merge m:1 year month using "$data/NCPI_series", keepusing(cpi_base2013) 
 keep if _merge==3 
 drop _merge 
 
 merge m:1 district using "$data/HIES/RAW/spatial_priceindex.dta",  nogen
 bys year: egen avg_cpi = mean(cpi_base2013)
-tab avg_cpi avg_2023 
-tab avg_2019
+tab avg_cpi 
 
 ********************************************************************************
 * Income in real terms 
 ********************************************************************************
 
-gen rpcinc1  = (hh_inc_primary_nc_pc*avg_2019)/cpi_base2013
-gen rpcwage1 = (hh_wages_primary_pc*avg_2019)/cpi_base2013
-gen rpcself1 = (hh_selfemp_primary_pc*avg_2019)/cpi_base2013
+gen rpcinc1  = (hh_inc_primary_nc_pc*avg_cpi)/cpi_base2013
+gen rpcwage1 = (hh_wages_primary_pc*avg_cpi)/cpi_base2013
+gen rpcself1 = (hh_selfemp_primary_pc*avg_cpi)/cpi_base2013
 
-gen rpcinc_tot  = (hh_inc_pc*avg_2019)/cpi_base2013
-gen rpcwage_tot = (hh_paidemp_pc*avg_2019)/cpi_base2013
-gen rpcself_tot = (hh_selfemp_pc*avg_2019)/cpi_base2013
-
-/*
 gen rpcinc2  = (hh_inc_sec_nc_pc*avg_cpi)/cpi_base2013
 gen rpcwage2 = (hh_wages_sec_pc*avg_cpi)/cpi_base2013
 gen rpcself2 = (hh_selfemp_sec_pc*avg_cpi)/cpi_base2013
-*/
+
+gen rpcinc_tot  = (hh_inc_pc*avg_cpi)/cpi_base2013
+gen rpcwage_tot = (hh_paidemp_pc*avg_cpi)/cpi_base2013
+gen rpcself_tot = (hh_selfemp_pc*avg_cpi)/cpi_base2013
+
+
 //spatial 
-foreach var in rpcinc1 rpcwage1 rpcself1 rpcinc_tot rpcwage_tot rpcself_tot /*rpcinc2 rpcwage2 rpcself2*/ {
+foreach var in rpcinc1 rpcwage1 rpcself1 rpcinc2 rpcwage2 rpcself2 rpcinc_tot rpcwage_tot rpcself_tot{
 	replace `var' = `var'*lpindex1
 }
 
@@ -651,12 +679,20 @@ tabstat  hh_inc_primary_nc_pc rpcinc* cpi_base2013, by(month)
 mdesc rpc* 
 sum rpc*
 
+*******************************************************************
+//Replace negative incomes with zeros 
+*******************************************************************
+foreach var in rpcinc1 rpcwage1 rpcself1 hh_inc_primary_nc_pc hh_wages_primary_pc hh_selfemp_primary_pc rpcinc_tot rpcwage_tot rpcself_tot hh_inc_pc hh_paidemp_pc hh_selfemp_pc {
+	replace `var' = 0 if `var'<0
+}
+
 //Shares for Shapley 
 gen has_rpcwage_tot= rpcwage_tot>0  & rpcwage_tot!=.
 gen has_rpcself_tot = rpcself_tot>0  & rpcself_tot!=. 
 
 bys hhid : egen num_wages =total(has_rpcwage_tot) , missing
 bys hhid : egen num_self =total(has_rpcself_tot) , missing
+
 
 ********************************************************************************
 *Income by sector
@@ -705,22 +741,14 @@ replace hh_main_agri=0 if most_emp==. | most_emp==0
 replace hh_main_ind=0 if most_emp==. | most_emp==0
 replace hh_main_serv=0 if most_emp==. | most_emp==0
 
-bysort 	hhid: egen num_ecactive=total(lstat_active)
-gen 	hh_lfpr	=	num_ecactive/(hhsize-num_kids)
+bysort hhid: egen num_ecactive=total(lstat_active)
+gen hh_lfpr=num_ecactive/(hhsize-num_kids)
 
 gen share_employed = num_ecactive / hhsize 
 gen sh_wrkng_adults = num_ecactive/num_adults 
 
 bysort hhid: egen have_skilled_worker=max(skill_4)
 bysort hhid: egen have_semiskilled_worker=max(skill_3)
-
-bysort hhid: egen num_skilled_worker=total(skill_4), missing
-bysort hhid: egen num_semiskilled_worker=total(skill_3) , missing
-
-gen sh_skilled_worker 		= num_skilled_worker 	/ num_ecactive
-gen sh_semiskilled_worker 	= num_semiskilled_worker / num_ecactive
-
-sum sh_skilled_worker sh_semiskilled_worker
 
 //Employment Status 
 mdesc empstat 
@@ -738,8 +766,7 @@ bysort hhid: egen have_self_emp=max(empstat_5)
 
 gen sh_employee =  (num_public_emp+num_pvt_emp) / num_ecactive
 gen sh_selfempl =  num_self_emp / num_ecactive
-gen sh_ecactive =  num_ecactive / hhsize 
-
+gen sh_ecactive = num_ecactive / hhsize 
 
 ********************************************************************************
 // FIREWOOD/WATER CONSUMPTION 
@@ -827,6 +854,7 @@ foreach var in aware_activities aware_for_edu aware_for_work can_activities can_
 	label var `var'  "At least one in HH: `var'"
 }
 
+
 *******************************************************************************
 // Summary stats relevant variables 
 *******************************************************************************
@@ -860,7 +888,7 @@ mean inc_selfemp_mon [aw=weight] if inc_selfemp_mon!=0
 
 *keep hhid pid rship weight dist* sector urban sector_* hhsize district eth sin age sex male rel buddhist educat5 educat7 noedu atleast_sec schoolage_noschool marstat married empstat* lstat_active inc* rpccons hhexppm cellphone computer eye_dsablty hear_dsablty conc_dsord slfcre_dsablty comm_dsablty broad_industry skill_level broad_ind_* skill_* no_* major_* inc_emp_excl_bonus
 
-gen data="LFS2023"
+gen data="LFS2019"
 
 keep if rship==1
 
@@ -887,10 +915,13 @@ pctile ptile_wages 			= hh_wages_primary_pc [pw=weight] , nq(100)
 pctile ptile_hh_inc_prim_nc = hh_inc_primary_nc_pc [pw=weight], nq(100)
 
 
-keep hhid psu weight popwt sector province district subnatid2 dist_* sector* urban rural age_avg hhsize share_dep num_dep num_kids num_old share_kids dep_ratio cellphone computer have_atleast_secedu have_schoolage_noschl have_agri_emp have_ind_emp have_constr_emp have_serv_emp hh_main_agri hh_main_ind hh_main_serv hh_maininc_agri hh_maininc_ind hh_maininc_serv  have_skilled_worker have_semiskilled_worker have_public_emp  have_pvt_emp have_family_worker have_employer have_self_emp have_emp_inc data hh_lfpr sex_ratio *mem* edu* 								///
- hh_wages have_* wages_hhh *_pc ptile* 														/// 
+keep hhid psu weight popwt province district dist_* sector urban rural age_avg hhsize share_dep num_dep num_kids num_old share_kids dep_ratio cellphone computer have_atleast_secedu have_schoolage_noschl have_agri_emp have_ind_emp have_constr_emp have_serv_emp hh_main_agri hh_main_ind hh_main_serv hh_maininc_agri hh_maininc_ind hh_maininc_serv  have_skilled_worker have_semiskilled_worker have_public_emp  have_pvt_emp have_family_worker have_employer have_self_emp have_emp_inc data hh_lfpr sex_ratio *mem* edu* 								///
+ hh_wages have_* wages_hhh *_pc ptile* rpc*					/// 
  labor_income* collects_* sh_in_school have_schoolage_noschl has_in_school has_*_disab *hhh ///
- sh_selfempl sh_employee sh_ecactive 														///
- hh_aware* hh_can* hh_use* hh_internet* hh_emailed* rpc* *_tot ///
+ sh_selfempl sh_employee sh_ecactive hh_aware* hh_can* hh_use* hh_internet* hh_emailed* ///
  num_ecactive sh_adults sh_wrkng_adults num_adults num_wages num_self 
-save "$data/lfs2023_clean", replace 
+
+save "$data/lfs2019_clean", replace 
+
+
+
