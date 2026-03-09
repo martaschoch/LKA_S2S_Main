@@ -10,11 +10,8 @@
 rm(list=ls())
 
 #renv::init()
-#renv::update()
-options(pkgType = "binary")
-renv::restore(repos = c(CRAN = "https://cloud.r-project.org"), prompt = FALSE)
-
-
+renv::restore()
+# Check intallation of required packages
 
 # Check intallation of required packages
 packages <- c(
@@ -25,18 +22,26 @@ packages <- c(
   "ggh4x"
 )
 
-# Install missing packages
-installed <- installed.packages()
-for (pkg in packages) {
-  if (!(pkg %in% rownames(installed))) {
-    install.packages(pkg, dependencies = TRUE)
-  }
+# CRAN mirror (optional but recommended)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Function to check for installed packages
+is_installed <- function(pkg) {
+  suppressWarnings(requireNamespace(pkg, quietly = TRUE))
 }
 
-#renv::update()
+missing_pkgs <- packages[!vapply(packages, is_installed, logical(1))]
+
+if (length(missing_pkgs)) {
+  install.packages(missing_pkgs)
+} else {
+  message("All packages already installed.")
+}
+
 
 # Load all packages
 lapply(packages, require, character.only = TRUE)
+
 
 # Set paths
 #path <- "C:/Users/wb562318/Github"
