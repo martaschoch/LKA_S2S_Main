@@ -858,7 +858,7 @@ mean inc_selfemp_mon [aw=weight] if inc_selfemp_mon!=0
 *keep hhid pid rship weight dist* sector urban sector_* hhsize district eth sin age sex male rel buddhist educat5 educat7 noedu atleast_sec schoolage_noschool marstat married empstat* lstat_active inc* rpccons hhexppm cellphone computer eye_dsablty hear_dsablty conc_dsord slfcre_dsablty comm_dsablty broad_industry skill_level broad_ind_* skill_* no_* major_* inc_emp_excl_bonus
 
 gen data="LFS2024"
-
+save "$data/LFS/RAW/LFS_2024", replace 
 keep if rship==1
 
 //recode have_public_emp have_pvt_emp have_family_worker have_employer have_self_emp have_skilled_worker have_semiskilled_worker (.=0)

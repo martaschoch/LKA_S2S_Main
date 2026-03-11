@@ -1,13 +1,13 @@
 ********************************************************************************
 // Prepare Vectors for RScript
 ********************************************************************************
-//Marta 
+/*Marta 
 global data ../../Data
 global lfs2019  $data/LFS
 global hies2019 $data/HIES
 
 global output ../../Out 
-
+*/
 ********************************************************************************
 // 				HIES
 ********************************************************************************
@@ -88,7 +88,7 @@ replace sh_selfemp=0 if sh_selfemp<0 | sh_selfemp==.
 
 global incomes sh_wages sh_selfemp rpcinc1 rpcwage1 rpcself1 ln_rpcinc1 ln_rpcwage1 ln_rpcself1 rpcinc1 rpcwage1 rpcself1 
 
-keep hhid psu weight popwt sector $spatial $demo $hhh $assets $sector $disab $empstat $incomes $expenditure $assets $ynl19 $microsim 
+keep hhid psu snumber hhno nhh weight popwt sector $spatial $demo $hhh $assets $sector $disab $empstat $incomes $expenditure $assets $ynl19 $microsim 
 
 gen hhsize_sq = hhsize^2
 gen avg_age_sq = age_avg^2
@@ -282,7 +282,7 @@ gen hhsize_sq = hhsize^2
 gen avg_age_sq = age_avg^2
 sum *
 
-gen hhb_year = 2023-age_hh
+gen hhb_year = 2024-age_hh
 tabstat flag6_income
 
 gen estate = sector==3
