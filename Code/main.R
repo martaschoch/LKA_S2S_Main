@@ -10,6 +10,8 @@
 rm(list=ls())
 
 #renv::init()
+renv::restore()
+# Check intallation of required packages
 
 # Check intallation of required packages
 packages <- c(
@@ -20,18 +22,26 @@ packages <- c(
   "ggh4x"
 )
 
-# Install missing packages
-installed <- installed.packages()
-for (pkg in packages) {
-  if (!(pkg %in% rownames(installed))) {
-    install.packages(pkg, dependencies = TRUE)
-  }
+# CRAN mirror (optional but recommended)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
+# Function to check for installed packages
+is_installed <- function(pkg) {
+  suppressWarnings(requireNamespace(pkg, quietly = TRUE))
 }
 
-renv::update()
+missing_pkgs <- packages[!vapply(packages, is_installed, logical(1))]
+
+if (length(missing_pkgs)) {
+  install.packages(missing_pkgs)
+} else {
+  message("All packages already installed.")
+}
+
 
 # Load all packages
 lapply(packages, require, character.only = TRUE)
+
 
 # Set paths
 #path <- "C:/Users/wb562318/Github"
@@ -60,7 +70,7 @@ X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variab
 don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
 
 # Year stage 2
-year=2023  #or 2016
+year=2024  #2016 or 2023
 
 # Matching parameters stage 2: HHS w income
 X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
@@ -99,6 +109,8 @@ source(file.path(codepath, "Code/03-Stage 1-Outputs.R"))
 #Stage 2
 if (year==2023){
   source(file.path(codepath, "Code/04-Stage 2-Simulation2023-XGB.R"))
+} else if (year==2024) {
+  source(file.path(codepath, "Code/04-Stage 2-Simulation2024-XGB.R"))  
 } else {
   source(file.path(codepath, "Code/04-Stage 2-Simulation2016-XGB.R"))
 }
