@@ -543,7 +543,7 @@ label var hourly_wage "Hourly wage"
 gen lnyl = ln(hourly_wage) 
 two kdensity lnyl if employee==1 & informal==1  & private==1  || kdensity lnyl if employee==1 & public==1 ///
 || kdensity lnyl if employee==1 & formal==1 & private==1 , legend(label(1 "Informal Employee") label(2 "Formal, Public") label(3 "Formal, Private")) ytitle("Log Hourly Wage") scheme(stcolor)
-graph export "$output/s2s/loghourlywage2019.png", as(png) name("Graph") replace 
+//graph export "$output/s2s/loghourlywage2019.png", as(png) name("Graph") replace 
 
 
 ********************************************************************************
@@ -889,6 +889,9 @@ mean inc_selfemp_mon [aw=weight] if inc_selfemp_mon!=0
 *keep hhid pid rship weight dist* sector urban sector_* hhsize district eth sin age sex male rel buddhist educat5 educat7 noedu atleast_sec schoolage_noschool marstat married empstat* lstat_active inc* rpccons hhexppm cellphone computer eye_dsablty hear_dsablty conc_dsord slfcre_dsablty comm_dsablty broad_industry skill_level broad_ind_* skill_* no_* major_* inc_emp_excl_bonus
 
 gen data="LFS2019"
+
+//Save individual level file 
+save "$data/cleaned/lfs2019_ind_clean", replace 
 
 keep if rship==1
 
