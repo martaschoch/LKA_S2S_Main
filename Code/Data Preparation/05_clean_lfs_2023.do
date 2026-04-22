@@ -610,7 +610,7 @@ sum hh_selfemp_pc 	if hh_selfemp_pc!=0 [aw=weight]
 tab year 
 tab month
 
-merge m:1 year month using "$data/NCPI_series" , keepusing(cpi_base2013 avg_2019 avg_2023) 
+merge m:1 year month using "$data/NCPI_series" , keepusing(cpi_base2013 avg_2019 avg_2023) //NCPI_series is created in clean_2019hies.do 
 keep if _merge==3 
 drop _merge 
 

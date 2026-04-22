@@ -26,7 +26,7 @@ save "$data/NCPI_series", replace
 // Harmonized non-labor income components from 2019 HIES  
 use "$hies/SARMD/HIES_2019_inc"
 
-keep hhid pid ijubi icap itranext_m inocct_m ipcf
+keep hhid district sector psu snumber hhno nhh pid ijubi icap itranext_m inocct_m ipcf
 
 save "$hies/SARMD/HIES_2019_inc_hh" , replace 
 
@@ -877,7 +877,7 @@ pctile ptile_selfemp 		= hh_selfemp_primary_pc [pw=weight] , nq(100)
 pctile ptile_wages 			= hh_wages_primary_pc [pw=weight] , nq(100)
 pctile ptile_hh_inc_prim_nc = hh_inc_primary_nc_pc [pw=weight], nq(100)
 
-keep hhid psu weight popwt province district dist_* sector* urban rural age_avg hhsize share_dep num_dep num_kids num_old share_kids dep_ratio cellphone computer have_atleast_secedu have_schoolage_noschl have_agri_emp have_ind_emp have_constr_emp have_serv_emp hh_main_agri hh_main_ind hh_main_serv hh_maininc_agri hh_maininc_ind hh_maininc_serv  have_skilled_worker have_semiskilled_worker have_public_emp  have_pvt_emp have_family_worker have_employer have_self_emp have_emp_inc ln_welfare welfare data hh_lfpr sex_ratio *mem* edu* ///
+keep hhid psu snumber hhno nhh weight popwt province district dist_* sector* urban rural age_avg hhsize share_dep num_dep num_kids num_old share_kids dep_ratio cellphone computer have_atleast_secedu have_schoolage_noschl have_agri_emp have_ind_emp have_constr_emp have_serv_emp hh_main_agri hh_main_ind hh_main_serv hh_maininc_agri hh_maininc_ind hh_maininc_serv  have_skilled_worker have_semiskilled_worker have_public_emp  have_pvt_emp have_family_worker have_employer have_self_emp have_emp_inc ln_welfare welfare data hh_lfpr sex_ratio *mem* edu* ///
  hh_wages have_* wages_hhh *_pc ptile* rpcinc1 rpcwage1 rpcself1 rpcinc2 rpcwage2 rpcself2 /// 
  labor_income* collects_* sh_in_school have_schoolage_noschl has_in_school has_*_disab *hhh ///
  sh_selfempl sh_employee sh_ecactive sh_pensionyl* sh_icapyl* sh_inocct_myl* sh_remittancesyl* sh_ynyl* welfare23 rlaborincpc23 rnlincpc19 rnlincpc23

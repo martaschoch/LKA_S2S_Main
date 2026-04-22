@@ -1,13 +1,13 @@
 ********************************************************************************
 // Prepare Vectors for RScript
 ********************************************************************************
-//Marta 
+/*Marta 
 global data ../../Data
 global lfs2019  $data/LFS
 global hies2019 $data/HIES
 
 global output ../../Out 
-
+*/
 ********************************************************************************
 // 				HIES
 ********************************************************************************
@@ -88,7 +88,7 @@ replace sh_selfemp=0 if sh_selfemp<0 | sh_selfemp==.
 
 global incomes sh_wages sh_selfemp rpcinc1 rpcwage1 rpcself1 ln_rpcinc1 ln_rpcwage1 ln_rpcself1 rpcinc1 rpcwage1 rpcself1 
 
-keep hhid psu weight popwt sector $spatial $demo $hhh $assets $sector $disab $empstat $incomes $expenditure $assets $ynl19 $microsim 
+keep hhid psu snumber hhno nhh weight popwt sector $spatial $demo $hhh $assets $sector $disab $empstat $incomes $expenditure $assets $ynl19 $microsim 
 
 gen hhsize_sq = hhsize^2
 gen avg_age_sq = age_avg^2
@@ -105,29 +105,30 @@ tab sector estate
 save "$data/cleaned/hies2019_clean" , replace 
 
 ********************************************************************************
-// 				LFS
+// 				LFS: 2019 -2024
 ********************************************************************************
-use "$data/lfs2019_clean" , clear 
+forvalues i=2019/2024{
+	use "$data/lfs`i'_clean" , clear 
 
-//To avoid dropping obs: replace missing incomes with zeros
-foreach var in hh_paidemp_pc hh_selfemp_pc hh_selfemp_primary_pc hh_inc_pc ///
-hh_wages_pc hh_wages_primary_pc hh_inc_nc_pc hh_inc_primary_nc_pc ///
-rpcinc1 rpcwage1 rpcself1 rpcinc_tot rpcwage_tot rpcself_tot {
+	//To avoid dropping obs: replace missing incomes with zeros
+	foreach var in hh_paidemp_pc hh_selfemp_pc hh_selfemp_primary_pc 				hh_inc_pc ///
+				hh_wages_pc hh_wages_primary_pc hh_inc_nc_pc 				hh_inc_primary_nc_pc ///
+				rpcinc1 rpcwage1 rpcself1 rpcinc_tot rpcwage_tot 				rpcself_tot {
 
-//Winsorize positive values 
-	sum `var' if `var'>0 , d 
-	scalar p1 =r(p1)
-	scalar p99 = r(p99)
-	replace `var' = p1 if `var'<p1 		& `var'!=. 
-	replace `var' = p99 if `var'>p99 	& `var'!=. 
-//Replace missings with zero 	
-	replace `var' = 0 if `var' ==. 
-//Create logs 
-	gen ln_`var' = ln(`var')
-	replace ln_`var' = 0 if ln_`var' ==. 
+	//Winsorize positive values 
+					sum `var' if `var'>0 , d 
+					scalar p1 =r(p1)
+					scalar p99 = r(p99)
+					replace `var' = p1 if `var'<p1 		& `var'!=. 
+					replace `var' = p99 if `var'>p99 	& `var'!=. 
+	//Replace missings with zero 	
+					replace `var' = 0 if `var' ==. 
+	//Create logs 
+					gen ln_`var' = ln(`var')
+					replace ln_`var' = 0 if ln_`var' ==. 
 
 
-	}
+				}
 	gen flag6_income = rpcinc1==0
 	tabstat  flag6_income
 
@@ -156,14 +157,15 @@ mdesc *
 gen hhsize_sq = hhsize^2
 gen avg_age_sq = age_avg^2
 sum *
-gen hhb_year = 2019-age_hh
+gen hhb_year = `i'-age_hh
 
 gen estate = sector==3
 tab sector estate 
 
 tab district , nol
-save "$data/cleaned/lfs2019_clean" , replace
-
+save "$data/cleaned/lfs`i'_clean" , replace
+}
+/* 
 ********************************************************************************
 // 				2023
 ********************************************************************************
@@ -282,14 +284,14 @@ gen hhsize_sq = hhsize^2
 gen avg_age_sq = age_avg^2
 sum *
 
-gen hhb_year = 2023-age_hh
+gen hhb_year = 2024-age_hh
 tabstat flag6_income
 
 gen estate = sector==3
 tab sector estate 
 tab district, nol 
 save "$data/cleaned/lfs2024_clean" , replace
-
+*/
 
 ********************************************************************************
 // 				2016

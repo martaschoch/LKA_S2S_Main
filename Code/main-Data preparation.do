@@ -7,9 +7,16 @@
 clear all
 
 *=== Set up =================================================================*
+//Jaime
 global code "C:\Users\wb553773\GitHub\LKA_S2S_Main\Code\Data Preparation"
 global data "C:\Users\wb553773\WBG\Marta Schoch - Analysis\Data"
 global output "C:\Users\wb553773\WBG\Marta Schoch - Analysis\Out"
+
+//Marta 
+global code "C:\Users\wb562318\GitHub\LKA_S2S_Main\Code\Data Preparation"
+global data "C:\Users\wb562318\OneDrive - WBG\Documents\POV-SAR\SL\PA\Analysis\Data"
+global output "$data/Out"
+
 global lfs  $data/LFS
 global hies $data/HIES	
 
@@ -23,4 +30,5 @@ do "${code}\\02_clean_microsim_2023.do"
 do "${code}\\03_clean_lfs_2016.do"
 do "${code}\\04_clean_lfs_2019.do"
 do "${code}\\05_clean_lfs_2023.do"
+do "${code}\\05_clean_lfs_2024.do"
 	
