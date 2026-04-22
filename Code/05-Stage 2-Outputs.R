@@ -8,9 +8,11 @@ lfs19$survey="LFS_19_imp"
 lfs19$urban=factor(lfs19$urban, levels=c(0,1),labels=c("Rural","Urban"))
 
 #HIES 2019
-hies19 = subset(hies.don,select=c(urban,popwt,welfare))
+hies.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep="")) 
+hies19 = subset(hies.don,select=c(urban,sector,popwt,welfare))
 hies19$survey="HIES_19"
 hies19$urban=factor(hies19$urban, levels=c(0,1),labels=c("Rural","Urban"))
+hies19$sector=factor(hies19$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
 
 #lfs 2016
 lfs16.orig=read_dta(paste(datapath,
@@ -29,20 +31,28 @@ hies16=hies16 %>%
   rename(popwt=weight) %>%
   mutate(urban=factor(urban, levels=c(0,1),labels=c("Rural","Urban")))
 
-#lfs 2023
-lfs23.orig=read_dta(paste(datapath,
-                          "lfs2023_imputed.dta",
-                          sep="")) 
-lfs23.orig=subset(lfs23.orig,select=c(urban,popwt,welfare))
-lfs23.imp=lfs23.orig
-lfs23.imp$survey="LFS_23_imp"
-lfs23.imp$urban=factor(lfs23.imp$urban, levels=c(0,1),labels=c("Rural","Urban"))
+
+#lfs 2020-2024
+lfs_imp_list <- lapply(2020:2024, function(year) {
+  read_dta(file.path(datapath, paste0("lfs", year, "_imputed.dta"))) |>
+    subset(select = c(urban, sector, popwt, welfare)) |>
+    mutate(
+      survey = paste0("LFS_", substr(year, 3, 4), "_imp"),
+      urban = factor(urban, levels = c(0, 1), labels = c("Rural", "Urban")),
+      sector = factor(sector, levels = c(1, 2, 3), labels = c("Urban", "Rural", "Estate"))
+    )
+})
+names(lfs_imp_list) <- paste0("lfs", substr(2020:2024, 3, 4))
+list2env(lfs_imp_list, envir = .GlobalEnv)
+
+
 ###APPEND THREE ROUNDS 
 
-lfs.all=bind_rows(lfs19,hies19,lfs16.imp,lfs23.imp)
+lfs.all=bind_rows(lfs20,lfs21,lfs22,lfs23,lfs24)
 lfs.all$welfare=lfs.all$welfare*(12/365)/cpi21/icp21 #convert to 2021 PPP
 
-df=bind_rows(lfs.all,hies16)
+hies19$welfare=hies19$welfare*(12/365)/cpi21/icp21 #convert to 2021 PPP
+df=bind_rows(lfs.all,hies19)
 df=na.omit(df)
 
 df$pov30 = ifelse(df$welfare<3,1,0)
@@ -55,17 +65,17 @@ svydf <- svydesign(ids = ~1, data = df,
 
 tab1=svyby(~pov30+pov42+pov83, ~survey, design=svydf, svymean,
            na.rm=TRUE,vartype = "ci")
-tab1$urban="National"
-write.csv(tab1,paste(path,
-                     "/Outputs/Main/Tables/Poverty 2016 2023 national.csv",sep=""),
+tab1$sector="National"
+write.csv(tab1,paste(outpath,
+                     "/Outputs/Main/Tables/Poverty 2019 2024 national.csv",sep=""),
           row.names = FALSE)
 
 #Poverty by sector
-tab2=svyby(~pov30+pov42+pov83, ~survey+urban, design=svydf, 
+tab2=svyby(~pov30+pov42+pov83, ~survey+sector, design=svydf, 
            svymean,na.rm=TRUE,vartype = "ci")
 
-write.csv(tab2,paste(path,
-                     "/Outputs/Main/Tables/Poverty 2016 2023.csv",sep=""),row.names = FALSE)
+write.csv(tab2,paste(outpath,
+                     "/Outputs/Main/Tables/Poverty 2019 2024.csv",sep=""),row.names = FALSE)
 
 tab_all=bind_rows(tab1,tab2)
 
@@ -98,8 +108,8 @@ ci_upper_long <- tab_all %>%
 
 # Merge the long data frames by survey, sector, and variable
 plot_data <- means_long %>%
-  left_join(ci_lower_long, by = c("survey", "urban", "variable")) %>%
-  left_join(ci_upper_long, by = c("survey", "urban", "variable"))
+  left_join(ci_lower_long, by = c("survey", "sector", "variable")) %>%
+  left_join(ci_upper_long, by = c("survey", "sector", "variable"))
 
 # Correct labels in poverty lines
 plot_data$variable=factor(plot_data$variable,
@@ -107,13 +117,15 @@ plot_data$variable=factor(plot_data$variable,
                           labels=c("$3.0 PPP21","$4.2 PPP21","$8.3 PPP21"))
 
 plot_data$survey=factor(plot_data$survey,
-                        levels=c("HIES_16","LFS_16_imp","HIES_19","LFS_19_imp","LFS_23_imp"),
-                        labels=c("HIES_16","LFS_16_imp","HIES_19","LFS_19_imp","LFS_23_imp"))
+                        levels=c("HIES_19","LFS_20_imp","LFS_21_imp","LFS_22_imp","LFS_23_imp","LFS_24_imp"),
+                        labels=c("HIES_19","LFS_20_imp","LFS_21_imp","LFS_22_imp","LFS_23_imp","LFS_24_imp"))
 
+plot_data$sector=factor(plot_data$sector,
+                         levels=c("Urban","Rural","Estate","National"),
+                         labels=c("Urban","Rural","Estate","National"))
 
 # Create the bar plot with error bars and facet by variable (rows) and area (columns)
-ggplot(subset(plot_data,survey=="HIES_16" |
-                survey=="HIES_19" | survey=="LFS_23_imp"), 
+ggplot(plot_data, 
        aes(x = survey, y = mean, fill = survey)) +
   geom_bar(stat = "identity", width = 0.7, position = position_dodge()) +
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), 
@@ -122,22 +134,70 @@ ggplot(subset(plot_data,survey=="HIES_16" |
   geom_text(aes(label = percent(mean, accuracy = 0.1), y = mean/2), 
             position = position_dodge(width = 0.7),
             color = "black", size = 3) +
-  facet_grid(variable ~ urban, scales = "free_y") +
+  facet_grid(variable ~ sector, scales = "free_y") +
   scale_y_continuous(labels = percent) +
   labs(
     x = "Sector",
     y = "Poverty Rate (%)",
     title = "Original and Imputed Poverty Rates (95% CI)"
   ) +
-  theme_minimal() +
-  theme(legend.position = "none", panel.grid.major = element_blank())
+theme_minimal() +
+  theme(
+    legend.position = "none",
+    panel.grid.major = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
 
-ggsave(paste(path,
-             "/Outputs/Main/Figures/poverty rates hies lfs 16 - 23 CI.png",sep=""),
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI barplot.png",sep=""),
        width = 30, height = 20, units = "cm")
 
+#Line plot with ribbons
+plot_data_line <- plot_data |>
+  mutate(survey_num = as.numeric(survey))
 
+p_line <- ggplot(
+  plot_data_line,
+  aes(x = survey_num, y = mean, color = variable, fill = variable, group = variable)
+) +
+  geom_ribbon(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    alpha = 0.18,
+    linewidth = 0,
+    color = NA
+  ) +
+  geom_line(linewidth = 0.9) +
+  geom_point(size = 2) +
+  facet_wrap(~sector, ncol = 2) +
+  scale_x_continuous(
+    breaks = seq_along(levels(plot_data$survey)),
+    labels = levels(plot_data$survey)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = "Survey",
+    y = "Poverty Rate (%)",
+    color = "Poverty Line",
+    fill = "Poverty Line",
+    title = "Original and Imputed Poverty Rates (95% CI)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
 
+p_line
+ggsave(
+  filename = file.path(
+    outpath,
+    "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot.png"
+  ),
+  plot = p_line,
+  width = 30,
+  height = 20,
+  units = "cm"
+)
 
 #ECDF
 line300 = log(3.0)

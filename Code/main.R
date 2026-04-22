@@ -70,7 +70,7 @@ X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variab
 don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
 
 # Year stage 2
-year=2024  #2016 or 2023
+year=2022  #2016 or 2023
 
 # Matching parameters stage 2: HHS w income
 X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
