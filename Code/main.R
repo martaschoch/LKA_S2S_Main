@@ -49,6 +49,7 @@ lapply(packages, require, character.only = TRUE)
 
 codepath <- "C:/Users/wb553773/Github/LKA_S2S_main"
 datapath <-"C:/Users/wb553773/WBG/Marta Schoch - Analysis/Data/"
+dataout <-"C:/Users/wb553773/WBG/Marta Schoch - Analysis/Data/cleaned/Imputed Vectors/"
 outpath <- "C:/Users/wb553773/WBG/Marta Schoch - Analysis/Out/s2s/"
 
 # Set global parameters

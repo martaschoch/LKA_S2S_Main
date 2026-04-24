@@ -9,7 +9,7 @@ lfs19$urban=factor(lfs19$urban, levels=c(0,1),labels=c("Rural","Urban"))
 
 #HIES 2019
 hies.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep="")) 
-hies19 = subset(hies.don,select=c(urban,sector,popwt,welfare))
+hies19 = subset(hies.don,select=c(urban,sector,popwt,welfare,ln_rpcinc1))
 hies19$survey="HIES_19"
 hies19$urban=factor(hies19$urban, levels=c(0,1),labels=c("Rural","Urban"))
 hies19$sector=factor(hies19$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
@@ -34,8 +34,8 @@ hies16=hies16 %>%
 
 #lfs 2020-2024
 lfs_imp_list <- lapply(2020:2024, function(year) {
-  read_dta(file.path(datapath, paste0("lfs", year, "_imputed.dta"))) |>
-    subset(select = c(urban, sector, popwt, welfare)) |>
+  read_dta(file.path(dataout, paste0("lfs", year, "_imputed.dta"))) |>
+    subset(select = c(urban, sector, popwt, welfare,ln_rpcinc1)) |>
     mutate(
       survey = paste0("LFS_", substr(year, 3, 4), "_imp"),
       urban = factor(urban, levels = c(0, 1), labels = c("Rural", "Urban")),
@@ -233,7 +233,7 @@ ggsave(paste(path,
 # ====================================================
 
 dftemp <- df %>%
-  filter(survey %in% c("HIES_19", "LFS_23_imp"))
+  filter(survey %in% c("HIES_19", "LFS_24_imp"))
 
 dftemp_nat <- dftemp %>%
   group_by(survey) %>%
@@ -254,25 +254,25 @@ mean_nat <- dftemp_nat %>%
   ) %>%
   mutate(
     group = "National",
-    growth_rate = (`LFS_23_imp` / `HIES_19`)^(1/4) - 1,
+    growth_rate = (`LFS_24_imp` / `HIES_19`)^(1/4) - 1,
     pctile = pctile_nat
   ) %>%
   select(group, pctile, growth_rate)
 
 
 # ====================================================
-# PART B — URBAN / RURAL PERCENTILES (WITHIN SURVEY × URBAN)
+# URBAN / RURAL PERCENTILES (WITHIN SURVEY × URBAN)
 # ====================================================
 
 dftemp_urb <- dftemp %>%
-  group_by(survey, urban) %>%
+  group_by(survey, sector) %>%
   mutate(
     pctile_urb = xtile(welfare, n = 100, w = popwt)
   ) %>%
   ungroup()
 
 mean_urb <- dftemp_urb %>%
-  group_by(survey, urban, pctile_urb) %>%
+  group_by(survey, sector, pctile_urb) %>%
   summarise(
     welfare_avg = weighted.mean(welfare, popwt, na.rm = TRUE),
     .groups = "drop"
@@ -282,8 +282,8 @@ mean_urb <- dftemp_urb %>%
     values_from = welfare_avg
   ) %>%
   mutate(
-    growth_rate = (`LFS_23_imp` / `HIES_19`)^(1/4) - 1,
-    group = urban,
+    growth_rate = (`LFS_24_imp` / `HIES_19`)^(1/4) - 1,
+    group = sector,
     pctile = pctile_urb
   ) %>%
   select(group, pctile, growth_rate)
@@ -303,15 +303,106 @@ ggplot(final_plot_df, aes(x = pctile, y = growth_rate, color = group)) +
   geom_line(linewidth = 1) +
   theme_minimal() +
   labs(
-    title = "Growth Incidence Curve (2019–2023)",
-    x = "Percentile",
+    title = "Growth Incidence Curve - Consumption (2019–2024)",
+    x = "Consumption Percentile",
     y = "Annualized Growth Rate",
     color = "Population"
   ) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 0.1))+
-  scale_color_manual(values = c("National" = "black", "Urban" = "blue", "Rural" = "darkgreen"))
+  scale_color_manual(values = c("National" = "orange", "Urban" = "darkgreen", 
+                                "Rural" = "blue", "Estate" = "steelblue"))+
+  geom_hline(yintercept = 0)
 
 
-ggsave(paste(path,
-             "/Outputs/Main/Figures/GIC 19 23.png",sep=""),
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/GIC 19 24.png",sep=""),
        width = 30, height = 20, units = "cm")
+
+
+# ====================================================
+# GIC of labor income
+# ====================================================
+
+dftemp_nat2 <- dftemp %>%
+  group_by(survey) %>%
+  mutate(
+    pctile_nat = xtile(ln_rpcinc1, n = 100, w = popwt)
+  ) %>%
+  ungroup()
+
+mean_nat2 <- dftemp_nat2 %>%
+  group_by(survey, pctile_nat) %>%
+  summarise(
+    inc_avg = weighted.mean(ln_rpcinc1, popwt, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = survey,
+    values_from = inc_avg
+  ) %>%
+  mutate(
+    group = "National",
+    growth_rate = (`LFS_24_imp` / `HIES_19`)^(1/4) - 1,
+    pctile = pctile_nat
+  ) %>%
+  select(group, pctile, growth_rate)
+
+
+# ====================================================
+# URBAN / RURAL PERCENTILES (WITHIN SURVEY × URBAN)
+# ====================================================
+
+dftemp_urb2 <- dftemp %>%
+  group_by(survey, sector) %>%
+  mutate(
+    pctile_urb = xtile(ln_rpcinc1, n = 100, w = popwt)
+  ) %>%
+  ungroup()
+
+mean_urb2 <- dftemp_urb2 %>%
+  group_by(survey, sector, pctile_urb) %>%
+  summarise(
+    inc_avg = weighted.mean(ln_rpcinc1, popwt, na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from = survey,
+    values_from = inc_avg
+  ) %>%
+  mutate(
+    growth_rate = (`LFS_24_imp` / `HIES_19`)^(1/4) - 1,
+    group = sector,
+    pctile = pctile_urb
+  ) %>%
+  select(group, pctile, growth_rate)
+
+# ====================================================
+# COMBINE NATIONAL + URBAN + RURAL
+# ====================================================
+
+final_plot_df2 <- bind_rows(mean_nat2, mean_urb2) %>%
+  filter(pctile > 2, pctile < 98)
+
+# ====================================================
+# PLOT
+# ====================================================
+
+ggplot(final_plot_df2, aes(x = pctile, y = growth_rate, color = group)) +
+  geom_line(linewidth = 1) +
+  theme_minimal() +
+  labs(
+    title = "Growth Incidence Curve - Labor Income (2019–2024)",
+    x = "Labor Income Percentile",
+    y = "Annualized Growth Rate",
+    color = "Population"
+  ) +
+  scale_y_continuous(labels = scales::percent_format(accuracy = 0.1))+
+  scale_color_manual(values = c("National" = "orange", "Urban" = "darkgreen", 
+                                "Rural" = "blue", "Estate" = "steelblue"))+
+  geom_hline(yintercept = 0)
+
+
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/GIC 19 24.png",sep=""),
+       width = 30, height = 20, units = "cm")
+
