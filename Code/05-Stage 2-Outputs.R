@@ -18,18 +18,26 @@ hies19$sector=factor(hies19$sector, levels=c(1,2,3),labels=c("Urban","Rural","Es
 lfs16.orig=read_dta(paste(datapath,
                           "/lfs2016_imputed.dta",
                           sep="")) 
-lfs16.orig=subset(lfs16.orig,select=c(urban,popwt,welfare))
+lfs16.orig=subset(lfs16.orig,select=c(urban,sector,popwt,welfare))
 lfs16.imp=lfs16.orig
 lfs16.imp$survey="LFS_16_imp"
 lfs16.imp$urban=factor(lfs16.imp$urban, levels=c(0,1),labels=c("Rural","Urban"))
+lfs16.imp$sector=factor(lfs16.imp$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
 
 #hies 2016
 hies16=read_dta(paste(datapath,"hies16ppp.dta",sep=""))
 hies16$survey="HIES_16"
 hies16$district=NULL
-hies16=hies16 %>%
-  rename(popwt=weight) %>%
-  mutate(urban=factor(urban, levels=c(0,1),labels=c("Rural","Urban")))
+hies16 <- hies16 |>
+  rename(popwt = weight) |>
+  mutate(
+    urban = factor(
+      as.numeric(urban),
+      levels = c(0, 1),
+      labels = c("Rural", "Urban")
+    )
+  )
+
 
 
 #lfs 2020-2024
@@ -58,6 +66,26 @@ df=na.omit(df)
 df$pov30 = ifelse(df$welfare<3,1,0)
 df$pov42 = ifelse(df$welfare<4.2,1,0)
 df$pov83 = ifelse(df$welfare<8.3,1,0)
+
+lfs16.imp$welfare=lfs16.imp$welfare*(12/365)/cpi21/icp21 #convert to 2021 PPP
+
+df16 <- bind_rows(
+  hies16,
+  lfs16.imp |> select(-sector)
+)
+
+
+df16$log_welfare <- log(df16$welfare)
+ggplot(df16, aes(x = log_welfare, fill = survey)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Density Plot of Log Consumption for HIES 16 and LFS 16",
+       x = "Log Consumption",
+       y = "Density") +
+  theme_minimal()
+
+ggsave(paste(outpath,
+             "Outputs/Main/Figures/density_log_consumption_hies16_lfs16.png",sep=""),
+       width = 30, height = 20, units = "cm")
 
 #Set as survey
 svydf <- svydesign(ids = ~1, data = df, 
@@ -194,6 +222,81 @@ ggsave(
     "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot.png"
   ),
   plot = p_line,
+  width = 30,
+  height = 20,
+  units = "cm"
+)
+
+
+plot_data_sector <- plot_data |>
+  mutate(
+    survey_num = as.numeric(survey),
+    sector = factor(sector, levels = c("National", "Urban", "Rural", "Estate"))
+  ) |>
+  filter(!is.na(sector))
+
+
+p_sector <- ggplot(
+  plot_data_sector,
+  aes(
+    x = survey_num,
+    y = mean,
+    color = sector,
+    fill = sector,
+    group = sector
+  )
+) +
+  geom_ribbon(
+    aes(ymin = ci_lower, ymax = ci_upper),
+    alpha = 0.15,
+    linewidth = 0,
+    color = NA
+  ) +
+  geom_line(
+    data = \(d) d |> dplyr::filter(survey_num %in% c(1, 2)),
+    linewidth = 0.9,
+    linetype = "dashed"
+  ) +
+  geom_line(
+    data = \(d) d |> dplyr::filter(survey_num >= 2),
+    linewidth = 0.9,
+    linetype = "solid"
+  ) +
+  geom_point(size = 2) +
+  geom_text(
+  data = plot_data_sector |> dplyr::filter(sector == "National"),
+  aes(label = round(mean * 100, 1)),
+  vjust = -0.6,
+  size = 3,
+  show.legend = FALSE
+)+
+  facet_wrap(~variable, nrow = 1) +
+  scale_x_continuous(
+    breaks = seq_along(levels(plot_data$survey)),
+    labels = levels(plot_data$survey)
+  ) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(
+    x = "Survey",
+    y = "Poverty Rate (%)",
+    color = "Sector",
+    fill = "Sector",
+    title = "Poverty Rates by Sector (95% CI)"
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major.x = element_blank(),
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)
+  )
+
+p_sector
+
+ggsave(
+  filename = file.path(
+    outpath,
+    "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot by sector.png"
+  ),
+  plot = p_sector,
   width = 30,
   height = 20,
   units = "cm"
