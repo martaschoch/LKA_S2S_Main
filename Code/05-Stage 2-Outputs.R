@@ -368,14 +368,14 @@ mean_nat <- dftemp_nat %>%
 # ====================================================
 
 dftemp_urb <- dftemp %>%
-  group_by(survey, sector) %>%
+  group_by(survey, urban) %>%
   mutate(
     pctile_urb = xtile(welfare, n = 100, w = popwt)
   ) %>%
   ungroup()
 
 mean_urb <- dftemp_urb %>%
-  group_by(survey, sector, pctile_urb) %>%
+  group_by(survey, urban, pctile_urb) %>%
   summarise(
     welfare_avg = weighted.mean(welfare, popwt, na.rm = TRUE),
     .groups = "drop"
@@ -386,7 +386,7 @@ mean_urb <- dftemp_urb %>%
   ) %>%
   mutate(
     growth_rate = (`LFS_24_imp` / `HIES_19`)^(1/4) - 1,
-    group = sector,
+    group = urban,
     pctile = pctile_urb
   ) %>%
   select(group, pctile, growth_rate)
@@ -403,7 +403,7 @@ final_plot_df <- bind_rows(mean_nat, mean_urb) %>%
 # ====================================================
 
 ggplot(final_plot_df, aes(x = pctile, y = growth_rate, color = group)) +
-  geom_line(linewidth = 1) +
+    geom_smooth(se = TRUE, linewidth = 1, span=0.5) +
   theme_minimal() +
   labs(
     title = "Growth Incidence Curve - Consumption (2019–2024)",
@@ -413,7 +413,8 @@ ggplot(final_plot_df, aes(x = pctile, y = growth_rate, color = group)) +
   ) +
   scale_y_continuous(labels = scales::percent_format(accuracy = 0.1))+
   scale_color_manual(values = c("National" = "orange", "Urban" = "darkgreen", 
-                                "Rural" = "blue", "Estate" = "steelblue"))+
+                                "Rural" = "blue"))+
+                                #, "Estate" = "steelblue"))+
   geom_hline(yintercept = 0)
 
 
