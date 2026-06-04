@@ -19,7 +19,7 @@ hies19$sector=factor(hies19$sector, levels=c(1,2,3),labels=c("Urban","Rural","Es
 lfs16=read_dta(paste(dataout,
                           "/lfs2016_imputed.dta",
                           sep="")) 
-lfs16=subset(lfs16.orig,select=c(urban,sector,popwt,welfare,ln_rpcinc1))
+lfs16=subset(lfs16,select=c(urban,sector,popwt,welfare,ln_rpcinc1))
 lfs16$survey="LFS_16_imp"
 lfs16$urban=factor(lfs16$urban, levels=c(0,1),labels=c("Rural","Urban"))
 lfs16$sector=factor(lfs16$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
@@ -43,7 +43,7 @@ hies16 <- hies16 |>
 #lfs 2020-2024
 lfs_imp_list <- lapply(2020:2024, function(year) {
   read_dta(file.path(dataout, paste0("lfs", year, "_imputed.dta"))) |>
-    subset(select = c(urban, sector, popwt, welfare,ln_rpcinc1)) |>
+    #subset(select = c(urban, sector, popwt, welfare,ln_rpcinc1)) |>
     mutate(
       survey = paste0("LFS_", substr(year, 3, 4), "_imp"),
       urban = factor(urban, levels = c(0, 1), labels = c("Rural", "Urban")),
@@ -74,7 +74,8 @@ df16 <- bind_rows(
 
 
 df16$log_welfare <- log(df16$welfare)
-ggplot(df16, aes(x = log_welfare, fill = survey)) +
+ggplot(df16 |> filter(survey %in% c("HIES_16", "LFS_16_imp")), 
+aes(x = log_welfare, fill = survey)) +
   geom_density(alpha = 0.5) +
   labs(title = "Density Plot of Log Consumption for HIES 16 and LFS 16",
        x = "Log Consumption",
@@ -83,7 +84,7 @@ ggplot(df16, aes(x = log_welfare, fill = survey)) +
 
 ggsave(paste(outpath,
              "Outputs/Main/Figures/density_log_consumption_hies16_lfs16.png",sep=""),
-       width = 30, height = 20, units = "cm")
+       width = 20, height = 15, units = "cm")
 
 #Set as survey
 svydf <- svydesign(ids = ~1, data = df, 
@@ -235,7 +236,7 @@ plot_data_sector <- plot_data |>
 
 
 p_sector <- ggplot(
-  plot_data_sector,
+  plot_data_sector |> filter(variable %in% c("$3.0 PPP21","$4.2 PPP21")),
   aes(
     x = survey_num,
     y = mean,
@@ -262,10 +263,11 @@ p_sector <- ggplot(
   ) +
   geom_point(size = 2) +
   geom_text(
-  data = plot_data_sector |> dplyr::filter(sector == "National"),
+  data = plot_data_sector |> dplyr::filter(variable %in% c("$3.0 PPP21","$4.2 PPP21"), 
+  sector == "National"),
   aes(label = round(mean * 100, 1)),
-  vjust = -0.6,
-  size = 3,
+  vjust = -1.6,
+  size = 4,
   show.legend = FALSE
 )+
   facet_wrap(~variable, nrow = 1) +
@@ -295,8 +297,8 @@ ggsave(
     "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot by sector.png"
   ),
   plot = p_sector,
-  width = 30,
-  height = 20,
+  width = 25,
+  height = 15,
   units = "cm"
 )
 

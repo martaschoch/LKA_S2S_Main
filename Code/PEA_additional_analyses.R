@@ -67,7 +67,8 @@ plot_data$urban=factor(plot_data$urban,
                          labels=c("Urban","Rural","National"))
 
 # Create the bar plot with error bars and facet by variable (rows) and area (columns)
-ggplot(plot_data[plot_data$survey %in% c("HIES_16", "LFS_16_imp"), ], 
+ggplot(plot_data |> filter(survey %in% c("HIES_16", "LFS_16_imp"),
+                           variable %in% c("$3.0 PPP21","$4.2 PPP21")),
        aes(x = survey, y = mean, fill = survey)) +
   geom_bar(stat = "identity", width = 0.7, position = position_dodge()) +
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), 
@@ -902,15 +903,28 @@ pg_2016_level_plot_all <- ggplot(
     color = source_short
   )
 ) +
+  xlim(c(3,5)) +
   geom_line(
     aes(group = group),
     color = "gray60",
     linewidth = 0.8
   ) +
   geom_point(size = 4) +
-  geom_text(
+    geom_text(
+    data = pg_2016_plot_df_all |> filter(source_short == "Official HIES 2016"),
     aes(label = round(prosperity_gap, 2)),
+    nudge_x = -0.08,
     nudge_y = 0.3,
+    hjust = 1,
+    size = 3.8,
+    show.legend = FALSE
+  ) +
+  geom_text(
+    data = pg_2016_plot_df_all |> filter(source_short == "Imputed LFS 2016"),
+    aes(label = round(prosperity_gap, 2)),
+    nudge_x = 0.08,
+    nudge_y = 0.3,
+    hjust = 0,
     size = 3.8,
     show.legend = FALSE
   ) +
@@ -1051,3 +1065,913 @@ ggsave(
   height = 12,
   units = "cm"
 )
+
+
+
+
+###############
+#SUBNATIONAL COMPARISON
+###############
+
+#LFS 2016
+lfs16.orig=read_dta(paste(datapath,
+                          "/cleaned/lfs2016_clean.dta",
+                          sep="")) 
+lfs16.orig=subset(lfs16.orig,select=c(hhid,district))
+lfs16=read_dta(paste(dataout,
+                          "/lfs2016_imputed.dta",
+                          sep="")) 
+lfs16$district=NULL
+lfs16=merge(lfs16.orig,lfs16,by="hhid",all.x=TRUE)
+lfs16$welfare=lfs16$welfare*(12/365)/cpi21/icp21
+
+#hies 2016
+hies16=read_dta(paste(datapath,"hies16ppp.dta",sep=""))
+
+hies16.prov <- hies16 |>
+  group_by(subnatid, district) |>
+  summarise(
+    pop = sum(weight)/1000000,
+    .groups = "drop"
+  ) |>
+  #select(subnatid, district) |>
+  rename(province = subnatid) |>
+  mutate(province = sub("^\\d+\\s*-\\s*", "", province))
+
+hies16 <- hies16 |>
+  rename(popwt = weight) |>
+  mutate(
+    urban = factor(
+      as.numeric(urban),
+      levels = c(0, 1),
+      labels = c("Rural", "Urban")
+    ),
+    survey = "HIES_16"
+  ) |>
+  rename(province = subnatid) |>
+  mutate(province = sub("^\\d+\\s*-\\s*", "", province)) |>
+  select(urban, popwt, welfare, district, province, survey)
+
+lfs16 <- lfs16 |>
+  left_join(hies16.prov, by = "district") |>
+  mutate(
+    urban = factor(
+      urban,
+      levels = c(0, 1),
+      labels = c("Rural", "Urban")
+    ),
+    survey = "LFS_16"
+  ) |>
+  select(urban, popwt, welfare, district,province, survey)
+
+df16 <- bind_rows(hies16, lfs16)
+
+df16$pov30 = ifelse(df16$welfare<3,1,0)
+df16$pov42 = ifelse(df16$welfare<4.2,1,0)
+df16$pov83 = ifelse(df16$welfare<8.3,1,0)
+
+svydf <- svydesign(ids = ~1, data = df16, 
+                   weights = ~popwt)
+
+tab3=svyby(~pov30+pov42+pov83, ~survey+district, design=svydf, 
+           svymean,na.rm=TRUE,keep.var=FALSE)
+
+# 4.2 line
+
+
+tab3_wide_42 <- tab3 %>%
+  select(survey,district,statistic.pov42) %>%
+  pivot_wider(names_from = survey, values_from =statistic.pov42)
+
+tab3_wide_42 = tab3_wide_42 %>%
+  left_join(hies16.prov %>% select(pop, district), by = "district") 
+
+tab3_wide_42$HIES_16=100*tab3_wide_42$HIES_16
+tab3_wide_42$LFS_16=100*tab3_wide_42$LFS_16
+tab3_wide_42$Diff=with(tab3_wide_42,LFS_16-HIES_16)
+
+write.csv(tab3_wide_42,paste(outpath, 
+  "/Outputs/Main/Tables/district_pov_42.csv",sep=""))
+
+#ranking plot
+tab3_wide_42 <- tab3_wide_42 %>%
+  mutate(
+    hies_rank = rank(-HIES_16, ties.method = "first"),
+    lfs_rank = rank(-LFS_16, ties.method = "first")
+  )
+
+#rank correlation
+cat("Rank correlation is: ",cor(tab3_wide_42$hies_rank,tab3_wide_42$lfs_rank))
+
+ggplot(tab3_wide_42, aes(x = hies_rank, y = lfs_rank)) +
+  geom_point(aes(size = pop)) +
+  geom_text(aes(label = district), vjust = -0.5, check_overlap = TRUE) +
+  scale_x_continuous(breaks = 1:nrow(tab3_wide_42)) +
+  scale_y_continuous(breaks = 1:nrow(tab3_wide_42)) +
+  geom_abline(slope = 1, intercept = 0, size=1.3,
+              linetype = "dashed", color = "gray") +
+  coord_fixed() +
+  labs(
+    x = "HIES Ranking (1 = Highest Poverty Rate)",
+    y = "LFS Ranking (1 = Highest Poverty Rate)",
+    size = "Population (millions)",
+    title = "District Poverty Rankings ($4.2 PPP21)"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(size = .5)   # Reduce axis text size
+  )
+ggsave(
+  paste(outpath, "/Outputs/Main/Figures/District Ranking 2016 @4.2.png", sep = ""),
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
+
+#barplot
+tab3=svyby(~pov30+pov42+pov83, ~survey+province, design=svydf, 
+           svymean,na.rm=TRUE,keep.var=FALSE)
+tab3$statistic.pov42=100*tab3$statistic.pov42
+ggplot(tab3, aes(
+  y     = as.factor(province),
+  x     = statistic.pov42,
+  fill  = survey
+)) +
+  geom_bar(stat = "identity", position = position_dodge(width = 0.8)) +
+  labs(
+    y     = "Province",
+    x     = "Intl. Poverty Rate at \n$4.2 (2021 PPP) (%)",
+    fill  = "Survey",
+    title = "Actual and Imputed Poverty Rates by Province, 2016"
+  ) +
+  xlim(c(0,75))+
+  theme_minimal()
+ggsave(
+  paste(outpath, "/Outputs/Main/Figures/Province Barplot 2016 @4.2.png", sep = ""),
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
+#Descriptives LFS 2019-2024
+
+#lfs 2019
+lfs19=read_dta(paste(dataout,
+                      "lfs2019_imputed.dta",
+                      sep="")) 
+#lfs19$hhid=NULL
+#lfs19=subset(lfs19,select=c(urban,sector,popwt,welfare,ln_rpcinc1))
+lfs19$survey="LFS_19_imp"
+lfs19$urban=factor(lfs19$urban, levels=c(0,1),labels=c("Rural","Urban"))
+lfs19$loginc=log(lfs19$rpcinc_tot)
+lfs19$year=2019
+lfs19$sector=factor(lfs19$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
+
+#lfs 2020-2024
+lfs_imp_list <- lapply(2020:2024, function(year) {
+  read_dta(file.path(dataout, paste0("lfs", year, "_imputed.dta"))) |>
+    #subset(select = c(urban, sector, popwt, welfare,ln_rpcinc1)) |>
+    mutate(
+      loginc = log(rpcinc_tot),
+      year = year,
+      survey = paste0("LFS_", substr(year, 3, 4), "_imp"),
+      urban = factor(urban, levels = c(0, 1), labels = c("Rural", "Urban")),
+      sector = factor(sector, levels = c(1, 2, 3), labels = c("Urban", "Rural", "Estate"))
+    )
+})
+names(lfs_imp_list) <- paste0("lfs", substr(2020:2024, 3, 4))
+list2env(lfs_imp_list, envir = .GlobalEnv)
+
+survey_list <- list(
+  "2019" = lfs19,
+  "2020" = lfs20,
+  "2021" = lfs21,
+  "2022" = lfs22,
+  "2023" = lfs23,
+  "2024" = lfs24
+)
+
+Reduce(intersect, lapply(survey_list, names))
+
+vars_to_keep <- c(
+  "urban", "sector", "popwt", "welfare", "hhsize", "female_hhh", 
+  "age_hhh", "num_deps", "num_kids" , "edu_hhh_none"  ,"edu_hhh_prim"  ,  
+    "edu_hhh_sec", "loginc", "hh_main_agri", "hh_main_ind"  ,  "year",        
+   "hh_main_serv" ,"sh_employee"  ,"sh_selfempl", "sh_ecactive", "rpcinc_tot",
+   "sh_wages"
+)
+
+# Subset each data frame to keep only the desired columns
+subset_list <- lapply(survey_list, function(df) {
+  df[, intersect(vars_to_keep, names(df)), drop = FALSE]
+})
+
+# Append (row-bind) all the data frames into one
+combined_data <- do.call(rbind, subset_list)
+combined_data$year = fct_rev(as.factor(combined_data$year))
+
+stats_data <- combined_data %>%
+  filter(!is.na(popwt)) %>%
+  group_by(year, urban) %>%
+  summarise(
+    median_val = as.numeric(Hmisc::wtd.quantile(
+      loginc,
+      weights = popwt, probs = 0.5
+    )),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    year_factor = as.factor(year),
+    year_numeric = as.numeric(as.factor(year))
+      )
+
+stats_data_levels <- combined_data %>%
+  filter(!is.na(popwt)) %>%
+  group_by(year, urban) %>%
+  summarise(
+    median_val = as.numeric(Hmisc::wtd.quantile(
+      rpcinc_tot,
+      weights = popwt, probs = 0.5
+    )),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    year_factor = as.factor(year),
+    year_numeric = as.numeric(as.factor(year))
+      )
+
+write.csv(stats_data_levels, 
+  paste(outpath, "/Outputs/Main/Tables/Median income by year and urban rural.csv", sep = ""), row.names = FALSE)
+
+# Ridge plot with median lines colored by urban/rural
+ggplot(combined_data |> dplyr::filter(is.finite(loginc)),
+  aes(
+  x = loginc,
+  y = year,
+  fill = as.factor(year)
+)) +
+  geom_density_ridges(scale = 1.5, alpha = 0.7, color = "black") +
+  geom_segment(
+    data = stats_data,
+    aes(
+      x = median_val, xend = median_val,
+      y = year_numeric, yend = year_numeric + 1,
+      color = urban
+    ),
+    linetype = "dotted",
+    size = 0.8
+  ) +
+  scale_color_manual(
+    name = "Sector",
+    values = c("Rural" = "#ab7126", "Urban" = "#1E90FF")  # green & blue
+  ) +
+  scale_fill_viridis_d(guide = "none") +
+  labs(
+    x = "Log Labor Income, 2019 prices",
+    y = "Year",
+    title = "Labor Income Density and Median by Sector and Year"
+  ) +
+  scale_x_continuous(limits = c(7.5, 10.5), breaks = seq(7.5, 10.5, by = 0.5)) +
+  theme_minimal(base_size = 14) +
+  theme(
+    panel.grid.minor = element_blank(),
+    panel.grid.major.y = element_blank(),
+    legend.position = "right"
+  )
+ggsave(
+  paste(outpath, "/Outputs/Main/Figures/Ridgeplot_income.png", sep = ""),
+  width = 20,
+  height = 12,
+  units = "cm"
+)
+
+
+
+
+####DESCRIPTIVES####
+
+####Figure 6####
+exclude_vars <- c("urban", "sector", "popwt", "welfare", "year","loginc")
+
+weighted_means_long <- combined_data %>%
+  group_by(year) %>%
+  summarise(across(
+    .cols = setdiff(names(combined_data), exclude_vars),
+    .fns = ~ {
+      valid <- !is.na(.x) & !is.na(popwt) & popwt > 0
+      if (any(valid)) weighted.mean(.x[valid], popwt[valid]) else NA_real_
+    },
+    .names = "{.col}"
+  ))  %>%
+  # Convert from wide to long
+  pivot_longer(
+    cols = -year,
+    names_to = "variable",
+    values_to = "weighted_mean"
+  )
+
+
+var_labels <- c(
+  hhsize       = "HH size",
+  female_hhh   = "Female HH head",
+  age_hhh      = "Age of HH head",
+  num_deps     = "No. of dependents",
+  num_kids     = "No. of children",
+  edu_hhh_none = "HH head: no schooling",
+  edu_hhh_prim = "HH head: primary edu",
+  edu_hhh_sec  = "HH head: secondary edu",
+  hh_main_agri = "HH main sector: agriculture",
+  hh_main_ind  = "HH main sector: industry",
+  hh_main_serv = "HH main sector: services",
+  sh_employee  = "Sh. employees in HH",
+  sh_selfempl  = "Sh. self-employed in HH",
+  sh_ecactive  = "Sh. ec. active in HH",
+  rpcinc_tot   = "Real per-capita labor income",
+  sh_wages     = "Wage income share"
+)
+
+weighted_means_plot <- weighted_means_long |>
+  mutate(
+    variable_label = recode(variable, !!!var_labels, .default = variable)
+  )
+
+ggplot(
+  weighted_means_plot,
+  aes(
+    x = as.integer(as.character(year)),
+    y = weighted_mean,
+    group = 1,
+    color = variable
+  )
+) +
+  geom_line(linewidth = 0.7, show.legend = FALSE) +
+  facet_wrap(~ variable_label, ncol = 4, scales = "free_y") +
+  scale_color_viridis_d(option = "D") +
+  theme_minimal(base_size = 11) +
+  labs(x = "Year", y = NULL) +
+  theme(
+    strip.background = element_rect(fill = "grey95", colour = NA),
+    strip.text       = element_text(face = "bold", size = 8, colour = "#444444"),
+    panel.grid.major = element_line(colour = "grey85"),
+    panel.grid.minor = element_blank(),
+    axis.text.x      = element_text(angle = 45, hjust = 1, colour = "#333333"),
+    axis.text.y      = element_text(colour = "#333333"),
+    plot.background  = element_rect(fill = "white", colour = NA)
+  )
+
+ggsave(
+  paste(outpath, "/Outputs/Main/Figures/Descriptives LFS.png", sep = ""),
+  width = 20,
+  height = 15,
+  units = "cm"
+)
+
+rm(combined_data,data2017,data2018,data2019,
+   data2020,data2021,data2022)
+
+
+###############
+#POVERTY PROFILE COMPARISON
+###############
+
+#LFS 2016
+lfs16.orig=read_dta(paste(datapath,
+                          "/cleaned/lfs2016_clean.dta",
+                          sep="")) 
+lfs16.orig=subset(lfs16.orig,select=c(hhid,district))
+lfs16=read_dta(paste(dataout,
+                          "/lfs2016_imputed.dta",
+                          sep="")) 
+lfs16$district=NULL
+lfs16=merge(lfs16.orig,lfs16,by="hhid",all.x=TRUE)
+lfs16$welfare=lfs16$welfare*(12/365)/cpi21/icp21
+
+#hies 2016
+hies16_welf=read_dta(paste(datapath,"hies16ppp.dta",sep=""))
+hies16_welf = hies16_welf |>
+  select(hhid, welfare)
+
+#HIES 2016
+hies16=read_dta(paste(datapath,"hies2016_clean.dta",sep="")) 
+hies16$welfare=NULL
+hies16=merge(hies16,hies16_welf,by="hhid",all.x=TRUE)
+hies16$survey="HIES_16"
+#hies16$urban=factor(hies16$urban, levels=c(0,1),labels=c("Rural","Urban"))
+hies16$sector=factor(hies16$sector, levels=c(1,2,3),labels=c("Urban","Rural","Estate"))
+
+
+lfs16 <- lfs16 |>
+    mutate(
+    #urban = factor(
+    #  urban,
+    #  levels = c(0, 1),
+    #  labels = c("Rural", "Urban")
+    #),
+    survey = "LFS_16",
+    sector = factor(
+      sector,
+      levels = c(1, 2, 3),
+      labels = c("Urban", "Rural", "Estate")
+    ),
+    psu=as.numeric(psu)
+  ) 
+
+df16 <- bind_rows(hies16, lfs16)
+
+df16$pov30 = ifelse(df16$welfare<3,1,0)
+df16$pov42 = ifelse(df16$welfare<4.2,1,0)
+df16$pov83 = ifelse(df16$welfare<8.3,1,0)
+
+svydf <- svydesign(ids = ~1, data = df16, 
+                   weights = ~popwt)
+
+svyby(~pov30+pov42+pov83, ~survey, design=svydf, 
+           svymean,na.rm=TRUE,keep.var=FALSE)
+
+
+lfs_names <- names(lfs16)
+hies_names <- names(hies16)
+
+exact_common <- intersect(lfs_names, hies_names) |> sort()
+
+comp_vars = c("age_avg", "age_hhh", "buddhist_hhh","sinhala_hhh",
+ "edu_hhh_none","edu_sh_1564_none", "sector", "district", "hhsize",
+ "edu_hhh_prim", "edu_hhh_sec", "female_hhh", "have_agri_emp"  ,
+    "have_constr_emp"  , "have_ind_emp"  , "have_serv_emp"  ,
+     "hh_main_agri"  , "hh_main_ind"       , "hh_main_serv",
+    "married_hhh" ,"num_deps" ,"num_kids", "sh_mem_fem", 
+    "welfare","popwt","survey", "share_dep", "has_in_school", "num_old",
+    "employer_hhh","urban"
+  )
+
+# Overall profile comparison: LFS 2024 vs. BRIGHT 2024-25
+
+prof_vars_perc = setdiff(comp_vars, c("welfare","popwt","survey",
+"age_avg","age_hhh","hhsize","num_deps","num_kids","num_old","district","sector"))
+prof_vars_num = c("age_avg","age_hhh","hhsize","num_deps","num_kids","num_old")
+
+
+# Weighted means by survey (fixes summarize/across + factor issue) ----
+radar_wide <- df16 |>
+  group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_perc),
+      ~ stats::weighted.mean(as.numeric(.x), w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
+
+# ---- 2) Long format + safe scaling (fixes if_else length error) ----
+radar_long <- radar_wide |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_perc),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+scale_factor <- if (max(radar_long$value, na.rm = TRUE) <= 1) 100 else 1
+
+radar_long <- radar_long |>
+  mutate(
+    value = value * scale_factor,
+    variable = factor(variable, levels = prof_vars_perc)
+  )
+
+# ---- 3) Build radar coordinates ----
+n_vars <- length(prof_vars_perc)
+
+radar_plot_data <- radar_long |>
+  group_by(survey) |>
+  arrange(variable, .by_group = TRUE) |>
+  mutate(
+    angle = 2 * pi * (row_number() - 1) / n_vars,
+    x = value * sin(angle),
+    y = value * cos(angle)
+  ) |>
+  group_modify(\(.x, .y) bind_rows(.x, .x[1, ])) |>
+  ungroup()
+
+max_val <- max(radar_long$value, na.rm = TRUE)
+outer_lim <- max_val * 1.20
+label_radius <- max_val * 1.10
+
+# short, informative labels for radar axes
+radar_labels <- c(
+  buddhist_hhh    = "Buddhist HH head",
+  sinhala_hhh     = "Sinhala HH head",
+  edu_hhh_none    = "HH head: no schooling",
+  edu_sh_1564_none = "Any member 15-64 no schooling",
+  edu_hhh_prim    = "HH head: primary edu",
+  edu_hhh_sec    = "HH head: secondary edu",
+  has_in_school   = "Any member in school",
+  #employee_hhh    = "HH head is employee",
+  employer_hhh    = "HH head is employer",
+  #self_employed_hhh = "HH head is self-employed",
+  female_hhh      = "Female HH head",
+  have_agri_emp   = "Any agri worker",
+  have_constr_emp = "Any construction worker",
+  have_ind_emp    = "Any industry worker",
+  have_serv_emp   = "Any services worker",
+  hh_main_agri    = "Main sector: agri",
+  hh_main_ind     = "Main sector: industry",
+  hh_main_serv    = "Main sector: services",
+  married_hhh     = "HH head married",
+  sh_mem_fem      = "Female member share",
+  share_dep        = "Dependent member share",
+  urban        = "Urban residence"
+)
+
+axis_data <- tibble(
+  variable = factor(prof_vars_perc, levels = prof_vars_perc),
+  angle = 2 * pi * (seq_len(n_vars) - 1) / n_vars,
+  x = label_radius * sin(angle),
+  y = label_radius * cos(angle)
+) |>
+  mutate(
+    var_label = dplyr::recode(as.character(variable), !!!radar_labels, .default = as.character(variable))
+  )
+
+
+# --- radar guides (spokes + circular grids) ---
+grid_breaks <- pretty(c(0, max_val), n = 5)
+grid_breaks <- grid_breaks[grid_breaks >= 0]
+
+theta <- seq(0, 2 * pi, length.out = 360)
+
+grid_circles <- tibble(r = rep(grid_breaks, each = length(theta)),
+                       t = rep(theta, times = length(grid_breaks))) |>
+  mutate(
+    x = r * sin(t),
+    y = r * cos(t)
+  )
+
+spokes <- axis_data |>
+  transmute(
+    x = 0, y = 0,
+    xend = max_val * sin(angle),
+    yend = max_val * cos(angle)
+  )
+
+grid_labels <- tibble(
+  x = 0,
+  y = grid_breaks,
+  lab = paste0(round(grid_breaks), "%")
+)
+
+radar_plot_data$survey <- factor(radar_plot_data$survey, levels = c("HIES_16", "LFS_16"),
+                                labels = c("HIES 2016", "LFS 2016"))
+
+# --- plot ---
+p_radar <- ggplot(radar_plot_data, aes(x = x, y = y, group = survey)) +
+  geom_path(
+    data = grid_circles,
+    aes(x = x, y = y, group = r),
+    inherit.aes = FALSE,
+    color = "grey85",
+    linewidth = 0.4
+  ) +
+  geom_segment(
+    data = spokes,
+    aes(x = x, y = y, xend = xend, yend = yend),
+    inherit.aes = FALSE,
+    color = "grey80",
+    linewidth = 0.4
+  ) +
+  geom_text(
+    data = grid_labels,
+    aes(x = x, y = y, label = lab),
+    inherit.aes = FALSE,
+    color = "grey40",
+    size = 3,
+    vjust = -0.2
+  ) +
+  geom_polygon(aes(fill = survey, color = survey), alpha = 0.20, linewidth = 0.8) +
+  geom_path(aes(color = survey), linewidth = 0.9) +
+  geom_point(aes(color = survey), size = 1.6) +
+  geom_text(
+    data = axis_data,
+    aes(x = x, y = y, label = var_label),
+    inherit.aes = FALSE,
+    size = 3.5
+  ) +
+  coord_equal() +
+  scale_x_continuous(limits = c(-outer_lim, outer_lim)) +
+  scale_y_continuous(limits = c(-outer_lim, outer_lim)) +
+  labs(
+    title = "Overall profile comparison: HIES 2016 vs. LFS 2016",
+    subtitle = "",
+    fill = "Survey",
+    color = "Survey"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  )
+
+p_radar
+
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/radar_plot_lfs_hies_16.png",sep=""),
+       width = 24, height = 20, units = "cm")
+
+#Numerical comparison of means by survey
+
+# Short labels for numeric profile variables
+num_var_labels <- c(
+  age_avg  = "Average age",
+  age_hhh  = "Age of HH head",
+  hhsize   = "Household size",
+  num_deps = "No. of dependents",
+  num_kids = "No. of children",
+  num_old  = "No. of elderly"
+
+)
+
+tab_prof_num <- df16 |>
+  dplyr::group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_num),
+      ~ stats::weighted.mean(.x, w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_num),
+    names_to = "variable",
+    values_to = "weighted_avg"
+  ) |>
+  dplyr::mutate(
+    variable = factor(variable, levels = prof_vars_num),
+    label = dplyr::recode(as.character(variable), !!!num_var_labels, .default = as.character(variable)),
+    weighted_avg = round(weighted_avg, 2)
+  ) |>
+  dplyr::arrange(variable, survey) |>
+  dplyr::select(variable, label, survey, weighted_avg) |>
+  tidyr::pivot_wider(
+    names_from = survey,
+    values_from = weighted_avg
+  )
+
+tab_prof_num
+
+write.csv(tab_prof_num, paste(outpath,
+             "/Outputs/Main/Tables/numeric_profile_comparison_lfs_hies_16.csv",sep=""), 
+             row.names = FALSE)
+
+
+# Comparison of percentage profile variables overall: LFS 2016 vs. HIES 2016
+tab_prof_perc <- df16 |>
+  dplyr::group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_perc),
+      ~ stats::weighted.mean(.x, w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_perc),
+    names_to = "variable",
+    values_to = "weighted_avg"
+  ) |>
+  dplyr::mutate(
+    variable = factor(variable, levels = prof_vars_perc),
+    label = dplyr::recode(as.character(variable), !!!radar_labels, .default = as.character(variable)),
+    weighted_avg = round(weighted_avg, 3)
+  ) |>
+  dplyr::arrange(variable, survey) |>
+  dplyr::select(variable, label, survey, weighted_avg) |>
+  tidyr::pivot_wider(
+    names_from = survey,
+    values_from = weighted_avg
+  )
+
+tab_prof_perc
+
+write.csv(tab_prof_perc, paste(outpath,
+             "/Outputs/Main/Tables/percentage_profile_comparison_lfs_hies_16_all.csv",sep=""), 
+             row.names = FALSE)
+
+
+#Profile of the poor: LFS 2016 vs. HIES 2016
+
+# Weighted means by survey (fixes summarize/across + factor issue) ----
+radar_wide <- df16 |>
+  filter(pov42 == 1) |>
+  group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_perc),
+      ~ stats::weighted.mean(as.numeric(.x), w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  )
+
+# ---- 2) Long format + safe scaling (fixes if_else length error) ----
+radar_long <- radar_wide |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_perc),
+    names_to = "variable",
+    values_to = "value"
+  )
+
+scale_factor <- if (max(radar_long$value, na.rm = TRUE) <= 1) 100 else 1
+
+radar_long <- radar_long |>
+  mutate(
+    value = value * scale_factor,
+    variable = factor(variable, levels = prof_vars_perc)
+  )
+
+# ---- 3) Build radar coordinates ----
+n_vars <- length(prof_vars_perc)
+
+radar_plot_data <- radar_long |>
+  group_by(survey) |>
+  arrange(variable, .by_group = TRUE) |>
+  mutate(
+    angle = 2 * pi * (row_number() - 1) / n_vars,
+    x = value * sin(angle),
+    y = value * cos(angle)
+  ) |>
+  group_modify(\(.x, .y) bind_rows(.x, .x[1, ])) |>
+  ungroup()
+
+max_val <- max(radar_long$value, na.rm = TRUE)
+outer_lim <- max_val * 1.20
+label_radius <- max_val * 1.10
+
+
+axis_data <- tibble(
+  variable = factor(prof_vars_perc, levels = prof_vars_perc),
+  angle = 2 * pi * (seq_len(n_vars) - 1) / n_vars,
+  x = label_radius * sin(angle),
+  y = label_radius * cos(angle)
+) |>
+  mutate(
+    var_label = dplyr::recode(as.character(variable), !!!radar_labels, .default = as.character(variable))
+  )
+
+
+# --- radar guides (spokes + circular grids) ---
+grid_breaks <- pretty(c(0, max_val), n = 5)
+grid_breaks <- grid_breaks[grid_breaks >= 0]
+
+theta <- seq(0, 2 * pi, length.out = 360)
+
+grid_circles <- tibble(r = rep(grid_breaks, each = length(theta)),
+                       t = rep(theta, times = length(grid_breaks))) |>
+  mutate(
+    x = r * sin(t),
+    y = r * cos(t)
+  )
+
+spokes <- axis_data |>
+  transmute(
+    x = 0, y = 0,
+    xend = max_val * sin(angle),
+    yend = max_val * cos(angle)
+  )
+
+grid_labels <- tibble(
+  x = 0,
+  y = grid_breaks,
+  lab = paste0(round(grid_breaks), "%")
+)
+
+radar_plot_data$survey <- factor(radar_plot_data$survey, levels = c("HIES_16", "LFS_16"),
+                                labels = c("HIES 2016", "LFS 2016"))
+
+# --- plot ---
+p_radar <- ggplot(radar_plot_data, aes(x = x, y = y, group = survey)) +
+  geom_path(
+    data = grid_circles,
+    aes(x = x, y = y, group = r),
+    inherit.aes = FALSE,
+    color = "grey85",
+    linewidth = 0.4
+  ) +
+  geom_segment(
+    data = spokes,
+    aes(x = x, y = y, xend = xend, yend = yend),
+    inherit.aes = FALSE,
+    color = "grey80",
+    linewidth = 0.4
+  ) +
+  geom_text(
+    data = grid_labels,
+    aes(x = x, y = y, label = lab),
+    inherit.aes = FALSE,
+    color = "grey40",
+    size = 3,
+    vjust = -0.2
+  ) +
+  geom_polygon(aes(fill = survey, color = survey), alpha = 0.20, linewidth = 0.8) +
+  geom_path(aes(color = survey), linewidth = 0.9) +
+  geom_point(aes(color = survey), size = 1.6) +
+  geom_text(
+    data = axis_data,
+    aes(x = x, y = y, label = var_label),
+    inherit.aes = FALSE,
+    size = 3.5
+  ) +
+  coord_equal() +
+  scale_x_continuous(limits = c(-outer_lim, outer_lim)) +
+  scale_y_continuous(limits = c(-outer_lim, outer_lim)) +
+  labs(
+    title = "Profile of the poor: LFS 2024 vs. BRIGHT 2024-25",
+    subtitle = "",
+    fill = "Survey",
+    color = "Survey"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.title = element_blank(),
+    axis.text = element_blank(),
+    axis.ticks = element_blank(),
+    panel.grid = element_blank(),
+    legend.position = "bottom"
+  )
+
+p_radar
+
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/radar_plot_lfs_hies_16_poor.png",sep=""),
+       width = 24, height = 20, units = "cm")
+
+#Numerical comparison of means by survey
+
+
+tab_prof_num <- df16 |>
+  filter(pov42 == 1) |>
+  dplyr::group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_num),
+      ~ stats::weighted.mean(.x, w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_num),
+    names_to = "variable",
+    values_to = "weighted_avg"
+  ) |>
+  dplyr::mutate(
+    variable = factor(variable, levels = prof_vars_num),
+    label = dplyr::recode(as.character(variable), !!!num_var_labels, .default = as.character(variable)),
+    weighted_avg = round(weighted_avg, 2)
+  ) |>
+  dplyr::arrange(variable, survey) |>
+  dplyr::select(variable, label, survey, weighted_avg) |>
+  tidyr::pivot_wider(
+    names_from = survey,
+    values_from = weighted_avg
+  )
+
+tab_prof_num
+
+write.csv(tab_prof_num, paste(outpath,
+             "/Outputs/Main/Tables/numeric_profile_comparison_lfs_hies_16_poor.csv",sep=""), 
+             row.names = FALSE)
+
+# Comparison of percentage profile variables for the poor: LFS 2016 vs. HIES 2016
+tab_prof_perc <- df16 |>
+  filter(pov42 == 1) |>
+  dplyr::group_by(survey) |>
+  dplyr::summarize(
+    dplyr::across(
+      dplyr::all_of(prof_vars_perc),
+      ~ stats::weighted.mean(.x, w = popwt, na.rm = TRUE)
+    ),
+    .groups = "drop"
+  ) |>
+  tidyr::pivot_longer(
+    cols = dplyr::all_of(prof_vars_perc),
+    names_to = "variable",
+    values_to = "weighted_avg"
+  ) |>
+  dplyr::mutate(
+    variable = factor(variable, levels = prof_vars_perc),
+    label = dplyr::recode(as.character(variable), !!!radar_labels, .default = as.character(variable)),
+    weighted_avg = round(weighted_avg, 3)
+  ) |>
+  dplyr::arrange(variable, survey) |>
+  dplyr::select(variable, label, survey, weighted_avg) |>
+  tidyr::pivot_wider(
+    names_from = survey,
+    values_from = weighted_avg
+  )
+
+tab_prof_perc
+
+write.csv(tab_prof_perc, paste(outpath,
+             "/Outputs/Main/Tables/percentage_profile_comparison_lfs_hies_16_poor.csv",sep=""), 
+             row.names = FALSE)

@@ -4,16 +4,16 @@
 # #######
 
 #Load vector: 
-#data.rec2 <- read_dta(paste(datapath,
-#                      "cleaned/Stage 1/Final/Imputed_LFS_19_match_share.dta",
-#                      sep="")) 
-#data.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep="")) 
+data.rec2 <- read_dta(paste(dataout,
+                      "lfs2019_imputed.dta",
+                      sep="")) 
+data.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep="")) 
 #create sequential Ids
-#data.don$hidseq=seq(1:nrow(data.don))
-#data.don <- data.don %>% 
-#    filter(!is.na(welfare))
+data.don$hidseq=seq(1:nrow(data.don))
+data.don <- data.don %>% 
+    filter(!is.na(welfare))
 #hh age squared
-#data.don$hh_head_age_sq = with(data.don,age_hhh^2)
+data.don$hh_head_age_sq = with(data.don,age_hhh^2)
 
 # 2. Subset and add survey identifier
 lfs <- data.rec2 %>%
@@ -65,9 +65,9 @@ ggplot(df, aes(x = log(welfare), weight = popwt,
        y = "Density",
        title = "Original and Imputed Log Consumption by Survey (2019)")
 
-ggsave(paste(path,
-             "/Outputs/Main/Figures/figure 8a.png",sep=""),
-       width = 30, height = 20, units = "cm")
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Density HIES LFS 2019.png",sep=""),
+       width = 20, height = 15, units = "cm")
 
 ####Figure 8b
 
@@ -164,7 +164,9 @@ plot_data$variable=factor(plot_data$variable,
                 labels=c("$3.0 PPP21","$4.2 PPP21","$8.3 PPP21"))
 
 # Create the bar plot with error bars and facet by variable (rows) and area (columns)
-ggplot(plot_data, aes(x = survey, y = mean, fill = survey)) +
+ggplot(plot_data |> filter(Sector %in% c("Urban", "Rural"),
+                           variable %in% c("$3.0 PPP21","$4.2 PPP21")),
+  aes(x = survey, y = mean, fill = survey)) +
   geom_bar(stat = "identity", width = 0.7, position = position_dodge()) +
   geom_errorbar(aes(ymin = ci_lower, ymax = ci_upper), 
                 width = 0.2, 
@@ -182,9 +184,9 @@ ggplot(plot_data, aes(x = survey, y = mean, fill = survey)) +
   theme_minimal() +
   theme(legend.position = "none")
 
-ggsave(paste(path,
-             "/Outputs/Main/Figures/figure 10.png",sep=""),
-       width = 30, height = 20, units = "cm")
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Poverty Rates by Sector 2019.png",sep=""),
+       width = 15, height = 10, units = "cm")
 
 
 ##################
@@ -272,9 +274,9 @@ ggplot(tab3_wide_42, aes(x = hies_rank, y = lfs_rank)) +
   theme(
     axis.text = element_text(size = .5)   # Reduce axis text size
   )
-ggsave(paste(path,
+ggsave(paste(outpath,
              "/Outputs/Main/Figures/State Ranking 4.2.png",sep=""),
-       width = 20, height = 20, units = "cm")
+       width = 15, height = 15, units = "cm")
 
 
 # #8.3 line
@@ -416,14 +418,14 @@ ggplot(lfs.don, aes(x = ratio_tot, y = fct_rev(quintile),
                      weight = weight, fill = quintile)) +
   geom_density_ridges(alpha = 0.5, scale = 1.5, rel_min_height = 0.01) +
   labs(x = "Ratio",
-       y = "Quintile",
+       y = "ConsumptionQuintile",
        title = "Ridgeline Plot of Household Expenditure to Labor Income (2019)") +
-  xlim(c(0, 7.5)) +
+  xlim(c(0, 6)) +
   theme_ridges() + 
   theme(legend.position = "none") 
-ggsave(paste(path,
+ggsave(paste(outpath,
              "/Outputs/Main/Figures/Ridgeplot of ratio by quintile.png",sep=""),
-       width = 30, height = 20, units = "cm")
+       width = 20, height = 15, units = "cm")
 
 #Ridge plot of non-labor income share_19
 
@@ -440,8 +442,8 @@ ggsave(paste(path,
              "/Outputs/Main/Figures/Ridgeplot of share_19 by quintile.png",sep=""),
        width = 30, height = 20, units = "cm")
 
-#HEATMAP OF DECILES
-lfs.don.0=subset(lfs.don,flag6_income2==0)
+#HEATMAP OF DECILES imputed consumption and labor income LFS
+lfs.don.0=subset(lfs.don,flag6_income==0)
 lfs.don.0$decile_welfare=xtile(lfs.don.0$welfare,n=10,wt=lfs.don.0$popwt)
 lfs.don.0$decile_rpcinc=xtile(lfs.don.0$rpcinc_tot,n=10,wt=lfs.don.0$popwt)
 
@@ -469,10 +471,72 @@ ggplot(heatmap_data, aes(x = decile_welfare, y = decile_rpcinc, fill = rel_freq)
     fill = "Proportion of population"
   ) +
   theme_minimal()
-ggsave(paste(path,
-             "/Outputs/Main/Figures/Heatmap deciles.png",sep=""),
-       width = 30, height = 20, units = "cm")
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Heatmap deciles imputed.png",sep=""),
+       width = 20, height = 15, units = "cm")
 
+lfs.don$decile_welfare=xtile(lfs.don$welfare,n=10,wt=lfs.don$popwt)
+ggplot(lfs.don, aes(x = decile_welfare, fill = as.factor(flag6_income))) +
+  geom_bar(position = "fill") +
+  labs(x = "Deciles of imputed consumption",
+       y = "Proportion",
+       fill = "Labor income availability") +
+  scale_fill_manual(values = c("0" = "#5782b0", "1" = "#343691"),
+                    labels = c("0" = "Non-zero income", "1" = "Zero income")) +
+  theme_minimal()
+
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Barplot flag6_income by decile LFS.png",sep=""),
+       width = 20, height = 15, units = "cm")
+
+#HEATMAP OF DECILES consumption and labor income HIEs
+data.don$flag6_income2=ifelse(data.don$rpcinc1==0,1,0)
+data.don.0=subset(data.don,flag6_income2==0)
+data.don.0$decile_welfare=xtile(data.don.0$welfare,n=10,wt=data.don.0$popwt)
+data.don.0$decile_rpcinc=xtile(data.don.0$rpcinc1,n=10,wt=data.don.0$popwt)
+
+des <- svydesign(ids = ~1, weights = ~popwt, data = data.don.0)
+
+#Cross-tabulate weighted counts
+tab <- svytable(~decile_welfare + decile_rpcinc, design = des)
+heatmap_data <- as.data.frame(tab)
+
+heatmap_data <- heatmap_data %>%
+  mutate(rel_freq = Freq / sum(Freq))
+
+#Plot heatmap
+ggplot(heatmap_data, aes(x = decile_welfare, y = decile_rpcinc, fill = rel_freq)) +
+  geom_tile(color = "white") +
+  #geom_text(aes(label = percent(rel_freq, accuracy = .1)), color = "white", size = 3) +
+  scale_fill_viridis_c(
+    option = "mako",
+    labels = percent_format(accuracy = 1)
+  ) +
+  labs(
+    title = "Cross-Decile Heatmap",
+    x = "Deciles of consumption",
+    y = "Deciles of labor income",
+    fill = "Proportion of population"
+  ) +
+  theme_minimal()
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Heatmap deciles original HIES.png",sep=""),
+       width = 20, height = 15, units = "cm")
+
+
+data.don$decile_welfare=xtile(data.don$welfare,n=10,wt=data.don$popwt)
+ggplot(data.don, aes(x = decile_welfare, fill = as.factor(flag6_income2))) +
+  geom_bar(position = "fill") +
+  labs(x = "Deciles of consumption",
+       y = "Proportion",
+       fill = "Labor income availability") +
+  scale_fill_manual(values = c("0" = "#5782b0", "1" = "#343691"),
+                    labels = c("0" = "Non-zero income", "1" = "Zero income")) +
+  theme_minimal()
+
+ggsave(paste(outpath,
+             "/Outputs/Main/Figures/Barplot flag6_income by decile HIES.png",sep=""),
+       width = 20, height = 15, units = "cm")
 
 
 ## Share of non-labor income
