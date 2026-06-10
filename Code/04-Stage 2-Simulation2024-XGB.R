@@ -39,7 +39,17 @@ missing_report.don.hies <- hies.don %>%
                names_to = "Variable", values_to = "PercentMissing")
 subset(missing_report.don.hies,PercentMissing>0)
 hies.don$flag6_income2=with(hies.don,ifelse(rpcinc1>0,0,1))
+hies.don = hies.don |>
+    mutate(ratio=ifelse(rpcinc1>0,welfare/rpcinc1,NA))
 
+hies_nl=read_dta("C:/Users/wb553773/Downloads/nonlabor_inc_2024_gdp.dta")
+hies_nl = hies_nl |>
+    select(hhid,h_pensions_s_2019pr,h_capital_s_2019pr,h_transfers_s_2019pr,
+            h_ns_remit_s_2019pr,
+           h_dom_remit_s_2019pr,h_int_remit_s_2019pr,h_otherinla_s_2019pr,
+           h_renta_imp_s_2019pr)
+
+hies.don=merge(hies.don,hies_nl,by="hhid",all.x=TRUE)
 #####Prepare receiver survey##### 
 lfs.rec=read_dta(paste(datapath,
                        "cleaned/lfs2024_clean.dta",
@@ -76,12 +86,25 @@ set.seed(seed)  # For reproducibility
 start_time <- Sys.time()  # Start timer
 #match
 simcons_match=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
-simcons_match_i=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i1=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i2=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i3=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i4=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i5=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i6=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i7=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_i8=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+
+don.vars2.0=c("ratio","h_pensions_s_2019pr","h_capital_s_2019pr",
+            "h_transfers_s_2019pr",
+            "h_ns_remit_s_2019pr",
+            "h_dom_remit_s_2019pr","h_int_remit_s_2019pr","h_otherinla_s_2019pr",
+            "h_renta_imp_s_2019pr") #variables to be imputed
 
 foreach(sim = 1:nsim2) %do% {
     cat("Simulation for HHS with labor income: ",sim, "\n")
     # Bootstrap the training data
-    train_sample <- lfs.don %>%
+    train_sample <- hies.don %>%
         filter(flag6_income2==0) %>%
         group_by(district) %>%
         sample_frac(n.a)
@@ -106,35 +129,102 @@ foreach(sim = 1:nsim2) %do% {
     fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                             mtc.ids=rnd.2$mtc.ids,
                             z.vars=don.vars2.0) 
-    fA.wrnd$welfare = with(fA.wrnd, ratio_tot*rpcinc_tot)
-    fA.wrnd$y_nl = with(fA.wrnd, share_23*rpcinc_tot)
+    fA.wrnd$welfare = with(fA.wrnd, ratio*rpcinc1)
     fA.wrnd.c = fA.wrnd[,c("hhid","welfare")]
-    fA.wrnd.i = fA.wrnd[,c("hhid","y_nl")]
+    fA.wrnd.i1 = fA.wrnd[,c("hhid","h_pensions_s_2019pr")]
+    fA.wrnd.i2 = fA.wrnd[,c("hhid","h_capital_s_2019pr")]
+    fA.wrnd.i3 = fA.wrnd[,c("hhid","h_transfers_s_2019pr")]
+    fA.wrnd.i4 = fA.wrnd[,c("hhid","h_ns_remit_s_2019pr")]
+    fA.wrnd.i5 = fA.wrnd[,c("hhid","h_dom_remit_s_2019pr")]
+    fA.wrnd.i6 = fA.wrnd[,c("hhid","h_int_remit_s_2019pr")]
+    fA.wrnd.i7 = fA.wrnd[,c("hhid","h_otherinla_s_2019pr")]
+    fA.wrnd.i8 = fA.wrnd[,c("hhid","h_renta_imp_s_2019pr")]
     names(fA.wrnd.c)[2]=paste("welfare_",sim,sep="")
-    names(fA.wrnd.i)[2]=paste("y_nl_",sim,sep="")
+    names(fA.wrnd.i1)[2]=paste("y_nl1_",sim,sep="")
+    names(fA.wrnd.i2)[2]=paste("y_nl2_",sim,sep="")
+    names(fA.wrnd.i3)[2]=paste("y_nl3_",sim,sep="")
+    names(fA.wrnd.i4)[2]=paste("y_nl4_",sim,sep="")
+    names(fA.wrnd.i5)[2]=paste("y_nl5_",sim,sep="")
+    names(fA.wrnd.i6)[2]=paste("y_nl6_",sim,sep="")
+    names(fA.wrnd.i7)[2]=paste("y_nl7_",sim,sep="")
+    names(fA.wrnd.i8)[2]=paste("y_nl8_",sim,sep="")
     simcons_match=merge(simcons_match,fA.wrnd.c,by="hhid")
-    simcons_match_i=merge(simcons_match_i,fA.wrnd.i,by="hhid")
-    rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i,rnd.2)
+    simcons_match_i1=merge(simcons_match_i1,fA.wrnd.i1,by="hhid")
+    simcons_match_i2=merge(simcons_match_i2,fA.wrnd.i2,by="hhid")
+    simcons_match_i3=merge(simcons_match_i3,fA.wrnd.i3,by="hhid")
+    simcons_match_i4=merge(simcons_match_i4,fA.wrnd.i4,by="hhid")
+    simcons_match_i5=merge(simcons_match_i5,fA.wrnd.i5,by="hhid")
+    simcons_match_i6=merge(simcons_match_i6,fA.wrnd.i6,by="hhid")
+    simcons_match_i7=merge(simcons_match_i7,fA.wrnd.i7,by="hhid")
+    simcons_match_i8=merge(simcons_match_i8,fA.wrnd.i8,by="hhid")
+    rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i1,fA.wrnd.i2,
+        fA.wrnd.i3,fA.wrnd.i4,fA.wrnd.i5,fA.wrnd.i6,fA.wrnd.i7,
+        fA.wrnd.i8,rnd.2)
 }
 
 df.match.0=simcons_match
-df.match.0.i=simcons_match_i
+df.match.0.i1=simcons_match_i1
+df.match.0.i2=simcons_match_i2
+df.match.0.i3=simcons_match_i3
+df.match.0.i4=simcons_match_i4
+df.match.0.i5=simcons_match_i5
+df.match.0.i6=simcons_match_i6
+df.match.0.i7=simcons_match_i7
+df.match.0.i8=simcons_match_i8
 
 df.match.0$welfare_median=apply(df.match.0[,-1],
                               1,median,na.rm=TRUE)
-df.match.0.i$y_nl_median=apply(df.match.0.i[,-1],
+df.match.0.i1$y_nl1_median=apply(df.match.0.i1[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i2$y_nl2_median=apply(df.match.0.i2[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i3$y_nl3_median=apply(df.match.0.i3[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i4$y_nl4_median=apply(df.match.0.i4[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i5$y_nl5_median=apply(df.match.0.i5[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i6$y_nl6_median=apply(df.match.0.i6[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i7$y_nl7_median=apply(df.match.0.i7[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.i8$y_nl8_median=apply(df.match.0.i8[,-1],
                                 1,median,na.rm=TRUE)
 
 lfs.imp.0=merge(lfs.rec[lfs.rec$flag6_income2==0,],
                 df.match.0[,c("hhid","welfare_median")],by="hhid",
                 all.x=TRUE)
 lfs.imp.0=merge(lfs.imp.0,
-                df.match.0.i[,c("hhid","y_nl_median")],by="hhid",
+                df.match.0.i1[,c("hhid","y_nl1_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i2[,c("hhid","y_nl2_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i3[,c("hhid","y_nl3_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i4[,c("hhid","y_nl4_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i5[,c("hhid","y_nl5_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i6[,c("hhid","y_nl6_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i7[,c("hhid","y_nl7_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.i8[,c("hhid","y_nl8_median")],by="hhid",
                 all.x=TRUE)
 
 lfs.imp.0 = lfs.imp.0 %>%
-    rename(welfare=welfare_median,y_nl=y_nl_median) %>%
+    rename(welfare=welfare_median,h_pensions_s_2019pr=y_nl1_median,h_capital_s_2019pr=y_nl2_median,
+           h_transfers_s_2019pr=y_nl3_median,h_ns_remit_s_2019pr=y_nl4_median,h_dom_remit_s_2019pr=y_nl5_median,
+           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median) %>%
     mutate(logwelfare=log(welfare))
+
 
 # # -----------------------------
 # # Step 2: Hyperparameter Tuning on 2019 HIES data for HHs without income
@@ -169,10 +259,10 @@ base_params <- list(
 
 # Prepare training data (2019), HHs w/o income
 mod.full=lm(logwelfare~.,
-            data=hies.don[hies.don$flag6_income2==1,
+            data=hies.don[,
                          c("logwelfare",covariates)])
 X_train_full = model.matrix(mod.full)
-y_train_full <- hies.don[hies.don$flag6_income2==1,]$logwelfare
+y_train_full <- hies.don$logwelfare
 
 
 # Parallel grid search using foreach
@@ -212,14 +302,14 @@ print(tuning_results_1)
 rm(mod.full,X_train_full,y_train_full)
 
 write.csv(tuning_results_1,file=paste(outpath,
-                    "/Outputs/Intermediate/Models/XGB_tuning_hies_2019_1",
+                    "/Outputs/Intermediate/Models/XGB_tuning_hies_2019",
                     ".csv",sep=""),
            row.names = FALSE)
 
 # Run these lines to load tuning results previously saved
-#tuning_results_1=read.csv(paste(outpath,
-#               "/Outputs/Intermediate/Models/XGB_tuning_hies_2019_1",
-#                ".csv",sep=""))
+tuning_results_1=read.csv(paste(outpath,
+               "/Outputs/Intermediate/Models/XGB_tuning_hies_2019_1",
+                ".csv",sep=""))
 
 best_params_row_1 <- tuning_results_1[which.min(tuning_results_1$best_rmse), ]
 
@@ -249,8 +339,21 @@ registerDoParallel(cl)
 #lfs.don=lfs.imp.0 
 #match
 simcons_match=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
-simcons_match_i=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i1=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i2=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i3=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i4=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i5=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i6=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i7=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_i8=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
 
+don.vars2.1=c("welfare","h_pensions_s_2019pr","h_capital_s_2019pr",
+            "h_transfers_s_2019pr",
+            "h_ns_remit_s_2019pr",
+            "h_dom_remit_s_2019pr","h_int_remit_s_2019pr","h_otherinla_s_2019pr",
+            "h_renta_imp_s_2019pr") #variables to be imputed
+set.seed(seed)
 foreach(sim = 1:nsim2) %do% {
     cat("Simulation for HHS w/o labor income: ",sim, "\n")
     # Bootstrap the training data
@@ -298,10 +401,10 @@ foreach(sim = 1:nsim2) %do% {
     Y.b=predict(model, dtest)
     
     X.samp.b.pred=data.table(
-        hhid = lfs.rec[lfs.rec$flag6_income2==1, "hhid"],
+        hhid = lfs.rec[lfs.rec$flag6_income2==1,"hhid"],
         ymatch = exp(Y.b)) 
     X.samp.a.pred = data.table(
-        hhid = hies.don[hies.don$flag6_income2==1, "hhid"],
+        hhid = hies.don[hies.don$flag6_income2==1,"hhid"],
         ymatch = exp(Y.a))
     
     rm(Y.b,Y.a)
@@ -338,16 +441,39 @@ foreach(sim = 1:nsim2) %do% {
     fA.wrnd <- create.fused(data.rec=samp.btemp, data.don=samp.atemp,
                             mtc.ids=rnd.2$mtc.ids,
                             z.vars=don.vars2.1) 
-    fA.wrnd.c = fA.wrnd[,c("hhid","welfare23")]
-    fA.wrnd.i = fA.wrnd[,c("hhid","rnlincpc23")]
+    fA.wrnd.c = fA.wrnd[,c("hhid","welfare")]
+    fA.wrnd.i1 = fA.wrnd[,c("hhid","h_pensions_s_2019pr")]
+    fA.wrnd.i2 = fA.wrnd[,c("hhid","h_capital_s_2019pr")]
+    fA.wrnd.i3 = fA.wrnd[,c("hhid","h_transfers_s_2019pr")]
+    fA.wrnd.i4 = fA.wrnd[,c("hhid","h_ns_remit_s_2019pr")]
+    fA.wrnd.i5 = fA.wrnd[,c("hhid","h_dom_remit_s_2019pr")]
+    fA.wrnd.i6 = fA.wrnd[,c("hhid","h_int_remit_s_2019pr")]
+    fA.wrnd.i7 = fA.wrnd[,c("hhid","h_otherinla_s_2019pr")]
+    fA.wrnd.i8 = fA.wrnd[,c("hhid","h_renta_imp_s_2019pr")]
     names(fA.wrnd.c)[2]=paste("welfare_",sim,sep="")
-    names(fA.wrnd.i)[2]=paste("y_nl_",sim,sep="")
+    names(fA.wrnd.i1)[2]=paste("y_nl1_",sim,sep="")
+    names(fA.wrnd.i2)[2]=paste("y_nl2_",sim,sep="")
+    names(fA.wrnd.i3)[2]=paste("y_nl3_",sim,sep="")
+    names(fA.wrnd.i4)[2]=paste("y_nl4_",sim,sep="")
+    names(fA.wrnd.i5)[2]=paste("y_nl5_",sim,sep="")
+    names(fA.wrnd.i6)[2]=paste("y_nl6_",sim,sep="")
+    names(fA.wrnd.i7)[2]=paste("y_nl7_",sim,sep="")
+    names(fA.wrnd.i8)[2]=paste("y_nl8_",sim,sep="")
     simcons_match=merge(simcons_match,fA.wrnd.c,by="hhid")
-    simcons_match_i=merge(simcons_match_i,fA.wrnd.i,by="hhid")
-    rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i,rnd.2)
+    simcons_match_i1=merge(simcons_match_i1,fA.wrnd.i1,by="hhid")
+    simcons_match_i2=merge(simcons_match_i2,fA.wrnd.i2,by="hhid")
+    simcons_match_i3=merge(simcons_match_i3,fA.wrnd.i3,by="hhid")
+    simcons_match_i4=merge(simcons_match_i4,fA.wrnd.i4,by="hhid")
+    simcons_match_i5=merge(simcons_match_i5,fA.wrnd.i5,by="hhid")
+    simcons_match_i6=merge(simcons_match_i6,fA.wrnd.i6,by="hhid")
+    simcons_match_i7=merge(simcons_match_i7,fA.wrnd.i7,by="hhid")
+    simcons_match_i8=merge(simcons_match_i8,fA.wrnd.i8,by="hhid")
+    rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i1,fA.wrnd.i2,
+        fA.wrnd.i3,fA.wrnd.i4,fA.wrnd.i5,fA.wrnd.i6,fA.wrnd.i7,
+        fA.wrnd.i8,rnd.2)
 }
 # Stop the cluster after simulations
-stopCluster(cl)
+#stopCluster(cl)
 end_time <- Sys.time()  # End timer
 
 # Calculate total time taken
@@ -355,26 +481,78 @@ time_taken <- end_time - start_time
 cat("Total time for parallel simulation loop:", time_taken, "\n")
 
 df.match.1=simcons_match
-df.match.1.i=simcons_match_i
+df.match.1.i1=simcons_match_i1
+df.match.1.i2=simcons_match_i2
+df.match.1.i3=simcons_match_i3
+df.match.1.i4=simcons_match_i4
+df.match.1.i5=simcons_match_i5
+df.match.1.i6=simcons_match_i6
+df.match.1.i7=simcons_match_i7
+df.match.1.i8=simcons_match_i8
 
 df.match.1$welfare_median=apply(df.match.1[,-1],
                                 1,median,na.rm=TRUE)
-df.match.1.i$y_nl_median=apply(df.match.1.i[,-1],
+df.match.1.i1$y_nl1_median=apply(df.match.1.i1[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i2$y_nl2_median=apply(df.match.1.i2[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i3$y_nl3_median=apply(df.match.1.i3[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i4$y_nl4_median=apply(df.match.1.i4[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i5$y_nl5_median=apply(df.match.1.i5[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i6$y_nl6_median=apply(df.match.1.i6[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i7$y_nl7_median=apply(df.match.1.i7[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.i8$y_nl8_median=apply(df.match.1.i8[,-1],
                              1,median,na.rm=TRUE)
 
 lfs.imp.1=merge(lfs.rec[lfs.rec$flag6_income2==1,],
                 df.match.1[,c("hhid","welfare_median")],by="hhid",
                 all.x=TRUE)
 lfs.imp.1=merge(lfs.imp.1,
-                df.match.1.i[,c("hhid","y_nl_median")],by="hhid",
+                df.match.1.i1[,c("hhid","y_nl1_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i2[,c("hhid","y_nl2_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i3[,c("hhid","y_nl3_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i4[,c("hhid","y_nl4_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i5[,c("hhid","y_nl5_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i6[,c("hhid","y_nl6_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i7[,c("hhid","y_nl7_median")],by="hhid",
+                all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.i8[,c("hhid","y_nl8_median")],by="hhid",
                 all.x=TRUE)
 
+
 lfs.imp.1 = lfs.imp.1 %>%
-  rename(welfare=welfare_median,y_nl=y_nl_median) %>%
-  mutate(logwelfare=log(welfare))
+  rename(welfare=welfare_median,h_pensions_s_2019pr=y_nl1_median,h_capital_s_2019pr=y_nl2_median,
+           h_transfers_s_2019pr=y_nl3_median,h_ns_remit_s_2019pr=y_nl4_median,h_dom_remit_s_2019pr=y_nl5_median,
+           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median) %>%
+    mutate(logwelfare=log(welfare))
+
+
+#write_dta(lfs.imp.1,paste(datapath,
+#       "/lfs2024_imputed_non_labor.dta",sep=""))
 
 #Append both datasets
 lfs.imp=bind_rows(lfs.imp.0,lfs.imp.1)
+
+write_dta(lfs.imp,paste(datapath,
+       "/lfs2024_imputed_non_labor.dta",sep=""))
 
 gini=with(lfs.imp,gini.wtd(welfare,popwt))
 

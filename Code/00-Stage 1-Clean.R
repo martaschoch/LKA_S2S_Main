@@ -36,8 +36,7 @@ data.rec=na.omit(data.rec)
 #####Prepare donor survey#####
 data.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep=""))
 
-data.don=read_dta(paste(datapath,
-                        "/Data/Stage 1/Cleaned/HCES22_s2s.dta",sep=""))
+
 #create sequential Ids
 data.don$hidseq=seq(1:nrow(data.don))
 
@@ -64,6 +63,3 @@ subset(missing_report.don,PercentMissing>0)
 #data.don=subset(data.don,sel=-c(sex_ratio))
 
 
-### Load Excel file with states names
-states=read_excel(paste0(datapath,
-                         "/Data/Stage 1/Cleaned/states.xlsx"))
