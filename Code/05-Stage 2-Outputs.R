@@ -42,7 +42,7 @@ hies16 <- hies16 |>
 
 #lfs 2020-2024
 lfs_imp_list <- lapply(2020:2024, function(year) {
-  read_dta(file.path(dataout, paste0("lfs", year, "_imputed.dta"))) |>
+  read_dta(file.path(datapath, paste0("lfs", year, "_imputed.dta"))) |>
     #subset(select = c(urban, sector, popwt, welfare,ln_rpcinc1)) |>
     mutate(
       survey = paste0("LFS_", substr(year, 3, 4), "_imp"),
@@ -60,8 +60,9 @@ lfs.all=bind_rows(lfs16,lfs19,lfs20,lfs21,lfs22,lfs23,lfs24)
 lfs.all$welfare=lfs.all$welfare*(12/365)/cpi21/icp21 #convert to 2021 PPP
 
 hies19$welfare=hies19$welfare*(12/365)/cpi21/icp21 #convert to 2021 PPP
-df=bind_rows(lfs.all,hies19)
-df=na.omit(df)
+#df=bind_rows(lfs.all,hies19)
+#df=na.omit(df)
+df=lfs.all
 
 df$pov30 = ifelse(df$welfare<3,1,0)
 df$pov42 = ifelse(df$welfare<4.2,1,0)
@@ -94,7 +95,7 @@ tab1=svyby(~pov30+pov42+pov83, ~survey, design=svydf, svymean,
            na.rm=TRUE,vartype = "ci")
 tab1$sector="National"
 write.csv(tab1,paste(outpath,
-                     "/Outputs/Main/Tables/Poverty 2019 2024 national.csv",sep=""),
+                     "/Outputs/Main/Tables/Poverty 2020 2024 national.csv",sep=""),
           row.names = FALSE)
 
 #Poverty by sector
@@ -102,7 +103,7 @@ tab2=svyby(~pov30+pov42+pov83, ~survey+sector, design=svydf,
            svymean,na.rm=TRUE,vartype = "ci")
 
 write.csv(tab2,paste(outpath,
-                     "/Outputs/Main/Tables/Poverty 2019 2024.csv",sep=""),row.names = FALSE)
+                     "/Outputs/Main/Tables/Poverty 2020 2024.csv",sep=""),row.names = FALSE)
 
 tab_all=bind_rows(tab1,tab2)
 
@@ -176,7 +177,7 @@ theme_minimal() +
   )
 
 ggsave(paste(outpath,
-             "/Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI barplot.png",sep=""),
+             "/Outputs/Main/Figures/poverty rates lfs 20 - 24 CI barplot.png",sep=""),
        width = 30, height = 20, units = "cm")
 
 #Line plot with ribbons
@@ -218,7 +219,7 @@ p_line
 ggsave(
   filename = file.path(
     outpath,
-    "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot.png"
+    "Outputs/Main/Figures/poverty rates lfs 20 - 24 CI lineplot.png"
   ),
   plot = p_line,
   width = 30,
@@ -294,7 +295,7 @@ p_sector
 ggsave(
   filename = file.path(
     outpath,
-    "Outputs/Main/Figures/poverty rates hies lfs 19 - 24 CI lineplot by sector.png"
+    "Outputs/Main/Figures/poverty rates lfs 20 - 24 CI lineplot by sector.png"
   ),
   plot = p_sector,
   width = 25,

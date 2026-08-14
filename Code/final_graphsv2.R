@@ -26,15 +26,15 @@ cpi21=0.88027848 #this is to convert to 2021PPPs
 icp21=58.296108 #set up as in GMD
 
 #HIES 2016
-hies16=read_dta(paste(datapath,
-  "cleaned/Harmonized/LKA_2016_HIES_v01_M_v07_A_SARMD_GMD.dta",sep="")) 
-hies16 = hies16 |>
-  mutate(welfare = welfare*(1/365)/.7729536/icp21,
-        popwt = weight*hsize,
-        industry_orig = as.character(industry_orig),
-        industry_orig_year = as.character(industry_orig_year),
-        industry_orig_2 = as.character(industry_orig_2),
-        industry_orig_2_year = as.character(industry_orig_2_year))
+# hies16=read_dta(paste(datapath,
+#   "cleaned/Harmonized/LKA_2016_HIES_v01_M_v07_A_SARMD_GMD.dta",sep="")) 
+# hies16 = hies16 |>
+#   mutate(welfare = welfare*(1/365)/.7729536/icp21,
+#         popwt = weight*hsize,
+#         industry_orig = as.character(industry_orig),
+#         industry_orig_year = as.character(industry_orig_year),
+#         industry_orig_2 = as.character(industry_orig_2),
+#         industry_orig_2_year = as.character(industry_orig_2_year))
 
 #HIES 2019
 hies19=read_dta(paste(datapath,
@@ -47,46 +47,55 @@ hies19 = hies19 |>
     industry_orig_2 = as.character(industry_orig_2),
     industry_orig_2_year = as.character(industry_orig_2_year))
 
-#LFS imputed 2024
-lfs24.harm=read_dta(paste(datapath,
-  "cleaned/Harmonized/LKA_2024_LFS_v01_M_v01_A_SARLAB_IND.dta",sep=""))
+#LFS imputed 2020-2024
+lfs_years <- 19:24  # last two digits of survey year
 
-lfs24.imp=read_dta(paste(dataout,
-                      "lfs2024_imputed.dta",
-                      sep="")) 
-lfs24.imp = lfs24.imp |>
-  select(hhid,welfare)
+lfs_list <- lapply(lfs_years, function(yy) {
+  yr <- 2000 + yy
 
-lfs24 = lfs24.harm |>
-  left_join(lfs24.imp, by="hhid")|>
-  mutate(welfare = welfare*(12/365)/cpi21/icp21,
-    survey = "LFS_24",
-    popwt = weight*hsize,
-    industry_orig = as.character(industry_orig),
-    industry_orig_year = as.character(industry_orig_year),
-    industry_orig_2 = as.character(industry_orig_2),
-    industry_orig_2_year = as.character(industry_orig_2_year))
+  harm <- read_dta(paste(datapath,
+    "cleaned/Harmonized/LKA_", yr, "_LFS_v01_M_v01_A_SARLAB_IND.dta", sep = ""))
 
-lfs_names <- names(lfs24)
-hies16_names <- names(hies16)
+  imp <- read_dta(paste(dataout,
+    "lfs", yr, "_imputed.dta", sep = "")) |>
+    select(hhid, welfare)
+
+  harm |>
+    left_join(imp, by = "hhid") |>
+    mutate(welfare = welfare*(12/365)/cpi21/icp21,
+      survey = paste0("LFS_", yy),
+      popwt = weight*hsize,
+      industry_orig = as.character(industry_orig),
+      industry_orig_year = as.character(industry_orig_year),
+      industry_orig_2 = as.character(industry_orig_2),
+      industry_orig_2_year = as.character(industry_orig_2_year))
+})
+names(lfs_list) <- paste0("lfs", lfs_years)
+
+# Keep individual lfs20...lfs24 objects available, same as before
+list2env(lfs_list, envir = .GlobalEnv)
+
+lfs_names <- Reduce(intersect, lapply(lfs_list, names))
 hies19_names <- names(hies19)
 
-exact_common <- intersect(intersect(lfs_names, hies16_names), 
-hies19_names) |> sort()
+exact_common <- intersect(lfs_names, hies19_names) |> sort()
+#exact_common <- lfs_names |> sort()
 
-df=bind_rows(
-  hies16 |> select(all_of(exact_common),
-  - c(language,occup_orig,occup_orig_year,
-      occup_orig_2,occup_orig_2_year,pid,strata)) |> 
-    mutate(survey = "HIES_16"),
+lfs_common <- Map(function(dat, nm) {
+  dat |>
+    select(all_of(exact_common),
+      -c(language,occup_orig,occup_orig_year,
+        occup_orig_2,occup_orig_2_year,pid,strata)) |>
+    mutate(survey = paste0("LFS_", sub("^lfs", "", nm)))
+}, lfs_list, names(lfs_list)) |>
+  bind_rows()
+
+df <- bind_rows(
   hies19 |> select(all_of(exact_common),
     -c(language,occup_orig,occup_orig_year,
       occup_orig_2,occup_orig_2_year,pid,strata)) |> 
     mutate(survey = "HIES_19"),
-  lfs24 |> select(all_of(exact_common),
-    -c(language,occup_orig,occup_orig_year,
-      occup_orig_2,occup_orig_2_year,pid,strata)) |> 
-    mutate(survey = "LFS_24")
+  lfs_common
 )
 
 df$pov30 = ifelse(df$welfare<3,1,0)
@@ -113,7 +122,15 @@ df = df |>
     poor=factor(pov42, levels=c(0,1), labels=c("Non-poor","Poor")),
     urban = factor(urban, levels=c(0,1), labels=c("Rural","Urban")))
 
-
+df <- df |>
+  mutate(broad_industry = case_when(
+    industrycat10 == 1 ~ 1,
+    industrycat10 >= 2 & industrycat10 <= 4 ~ 2,
+    industrycat10 == 5 ~ 3,
+    industrycat10 >= 6 & industrycat10 <= 10 ~ 4
+  ) |>
+    factor(levels = c(1, 2, 3, 4),
+      labels = c("Agriculture", "Manufacturing", "Construction", "Services")))
 # Harmonize subnatid1: LFS_24 uses "X - Name Province" with hyphen
 # HIES uses "X – Name" with en-dash. Standardize to HIES format.
 
@@ -147,8 +164,9 @@ wb_teal    <- "#009FDA"
 wb_gold    <- "#F4A100"
 wb_red     <- "#EB1C2D"
 wb_gray    <- "#A8A9AD"
+wb_
 
-wb_3col <- c("HIES_16" = wb_blue, "HIES_19" = wb_teal, "LFS_24" = wb_gold)
+wb_6col <- c("HIES_16" = wb_blue, "HIES_19" = wb_teal, "LFS_24" = wb_gold)
 
 wb_sector_fill <- c(
   "Agriculture" = "#009FDA",
@@ -287,14 +305,41 @@ fig4 <- ggplot(fig4_data, aes(x = survey, y = reorder(subnatid1, poverty_rate), 
 
 # --- Figure 5: Poverty rate by employment type x sector -----------------------
 fig5_data <- df |>
-  filter(!is.na(industrycat4), !is.na(empstat), lstatus == "Employed", !is.na(pov42)) |>
-  summarise(poverty_rate = weighted.mean(pov42, weight), .by = c(industrycat4, empstat, survey))
+  filter(!is.na(broad_industry), !is.na(empstat), lstatus == "Employed", 
+!is.na(pov42),broad_industry!="Other", empstat!="Non-Paid Employee", empstat!="Employer",
+survey %in% c("LFS_19", "LFS_23", "LFS_24")) |>
+  summarise(poverty_rate = weighted.mean(pov42, weight), .by = c(broad_industry, empstat, survey))
 
 fig5 <- ggplot(fig5_data, aes(x = empstat, y = poverty_rate, color = survey)) +
   geom_point(size = 3, position = position_dodge(width = 0.4)) +
-  facet_wrap(~industrycat4) +
+  facet_wrap(~broad_industry) +
   scale_y_continuous(labels = percent) +
-  scale_color_manual(values = wb_3col) +
+  #scale_color_manual(values = wb_3col) +
+  labs(
+    title = "Poverty Rate by Employment Type and Sector",
+    subtitle = "$4.2/day line, employed individuals",
+    x = NULL, y = "Poverty rate", color = "Survey"
+  ) +
+  theme_wb +
+  theme(axis.text.x = element_text(angle = 30, hjust = 1))
+
+#Figure 5_a
+fig5a_data <- df |>
+  filter(!is.na(broad_industry), !is.na(empstat), lstatus == "Employed", 
+!is.na(pov42),broad_industry!="Other", empstat!="Non-Paid Employee", empstat!="Employer",
+survey %in% c("LFS_19", "LFS_23", "LFS_24")) |>
+  summarise(
+    poverty_rate = weighted.mean(pov42, weight),
+    n_poor = sum(weight[pov42 == 1]),
+    .by = c(broad_industry, empstat, survey)
+  )
+
+fig5a <- ggplot(fig5a_data, aes(x = empstat, y = poverty_rate, color = survey, size = n_poor)) +
+  geom_point(position = position_dodge(width = 0.4), alpha = 0.7) +
+  facet_wrap(~broad_industry, ncol = 4) +
+  scale_y_continuous(labels = percent) +
+  scale_size_continuous(labels = comma, name = "Number of Poor") +
+  #scale_color_manual(values = wb_3col) +
   labs(
     title = "Poverty Rate by Employment Type and Sector",
     subtitle = "$4.2/day line, employed individuals",

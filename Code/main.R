@@ -8,10 +8,20 @@
 
 #clear all
 rm(list=ls())
+# Add user library path (writable, unlike Program Files)
+user_lib <- Sys.getenv("R_LIBS_USER")
+dir.create(user_lib, recursive = TRUE, showWarnings = FALSE)
+.libPaths(c(user_lib, .libPaths()))
 
-#renv::init()
-renv::restore()
-# Check intallation of required packages
+# Only restore via renv if it's already installed
+if (requireNamespace("renv", quietly = TRUE)) {
+  renv::restore()
+} else {
+  message("renv not available — skipping restore. Installing packages manually.")
+}
+
+# Set CRAN mirror before any installs
+options(repos = c(CRAN = "https://cloud.r-project.org"))
 
 # Check intallation of required packages
 packages <- c(
@@ -19,7 +29,7 @@ packages <- c(
   "data.table", "haven", "statar", "parallel", "foreach", "doParallel",
   "dplyr", "tidyr", "dineq", "convey", "renv", "transport", "ggridges",
   "ggplot2","forcats","scales","readxl","Hmisc","xgboost","matrixStats",
-  "ggh4x"
+  "ggh4x", "WDI"
 )
 
 # CRAN mirror (optional but recommended)
@@ -70,16 +80,13 @@ seed = 1729
 X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variables
 don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
 
-# Year stage 2
-year=2022  #2016 or 2023
-
 # Matching parameters stage 2: HHS w income
 X.mtc2.0=c("rpcinc_tot","hhsize","hhb_year") # nearest neighbor search variables
-don.vars2.0=c("ratio_tot","share_23") #variables to be imputed
+don.vars2.0=c("ratio_tot") #variables to be imputed
 
 # Matching parameters stage 2: HHS w/o income
 X.mtc2.1=c("ymatch","hhsize","age_hhh") # nearest neighbor search variables
-don.vars2.1=c("welfare23","rnlincpc23") #variables to be imputed
+don.vars2.1=c("welfare") #variables to be imputed
 
 # Parameters to convert vectors in 2019 prices to 2021 PPP
 cpi21=0.88027848 #this is to convert to 2021PPPs
@@ -108,13 +115,7 @@ source(file.path(codepath, "Code/01-Stage 1-Simulation.R"))
 source(file.path(codepath, "Code/02-Stage 1-Ensemble.R"))
 source(file.path(codepath, "Code/03-Stage 1-Outputs.R"))
 #Stage 2
-if (year==2023){
-  source(file.path(codepath, "Code/04-Stage 2-Simulation2023-XGB.R"))
-} else if (year==2024) {
-  source(file.path(codepath, "Code/04-Stage 2-Simulation2024-XGB.R"))  
-} else {
-  source(file.path(codepath, "Code/04-Stage 2-Simulation2016-XGB.R"))
-}
+source(file.path(codepath, "Code/04-Stage 2-Simulation-XGB.R"))
 source(file.path(codepath, "Code/05-Stage 2-Outputs.R"))
 
 

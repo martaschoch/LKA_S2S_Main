@@ -2,8 +2,6 @@
 
 ####Prepare receiver survey#####
 data.rec=read_dta(paste(datapath,"cleaned/lfs2019_clean.dta",sep=""))
-data.rec=read_dta(paste(datapath,
-  "/Data/Stage 1/Cleaned/IND_2022_PLFS_v01_M_v02_A_s2s_HCES_to_PLFS.dta",sep=""))
 #create sequential IDs
 data.rec$hidseq=seq(1:nrow(data.rec))
 
@@ -35,9 +33,6 @@ data.rec=na.omit(data.rec)
 
 #####Prepare donor survey#####
 data.don=read_dta(paste(datapath,"cleaned/hies2019_clean.dta",sep=""))
-
-data.don=read_dta(paste(datapath,
-                        "/Data/Stage 1/Cleaned/HCES22_s2s.dta",sep=""))
 #create sequential Ids
 data.don$hidseq=seq(1:nrow(data.don))
 
@@ -63,7 +58,29 @@ missing_report.don <- data.don %>%
 subset(missing_report.don,PercentMissing>0)
 #data.don=subset(data.don,sel=-c(sex_ratio))
 
+# Indicator: Households & NPISHs Final consumption expenditure (2015 US$)
+#   -> "real" household consumption in local currency units
+#   Code: NE.CON.PRVT.KD
 
-### Load Excel file with states names
-states=read_excel(paste0(datapath,
-                         "/Data/Stage 1/Cleaned/states.xlsx"))
+hfce <- WDI(
+  country   = "LK",             
+  indicator = "NE.CON.PRVT.KD",
+  start     = 2016,
+  end       = 2025
+)
+
+# Clean and order
+hfce <- hfce %>%
+  rename(hh_cons_real = NE.CON.PRVT.KD) %>%
+  select(country, iso2c, year, hh_cons_real) %>%
+  arrange(year)
+
+# Value in the base year 2019
+base_2019 <- hfce$hh_cons_real[hfce$year == 2019]
+
+# Percentage variation of each year relative to 2019
+hfce <- hfce %>%
+  mutate(pct_change_vs_2019 = (hh_cons_real / base_2019 - 1)) %>%
+  select(year, pct_change_vs_2019)
+
+print(hfce)
