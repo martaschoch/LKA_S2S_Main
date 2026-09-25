@@ -10,7 +10,7 @@
 rm(list=ls())
 
 #renv::init()
-renv::restore()
+#renv::restore()
 # Check intallation of required packages
 
 # Check intallation of required packages
@@ -23,20 +23,20 @@ packages <- c(
 )
 
 # CRAN mirror (optional but recommended)
-options(repos = c(CRAN = "https://cloud.r-project.org"))
+# options(repos = c(CRAN = "https://cloud.r-project.org"))
 
-# Function to check for installed packages
-is_installed <- function(pkg) {
-  suppressWarnings(requireNamespace(pkg, quietly = TRUE))
-}
+# # Function to check for installed packages
+# is_installed <- function(pkg) {
+#   suppressWarnings(requireNamespace(pkg, quietly = TRUE))
+# }
 
-missing_pkgs <- packages[!vapply(packages, is_installed, logical(1))]
+# missing_pkgs <- packages[!vapply(packages, is_installed, logical(1))]
 
-if (length(missing_pkgs)) {
-  install.packages(missing_pkgs)
-} else {
-  message("All packages already installed.")
-}
+# if (length(missing_pkgs)) {
+#   install.packages(missing_pkgs)
+# } else {
+#   message("All packages already installed.")
+# }
 
 
 # Load all packages
@@ -68,7 +68,7 @@ seed = 1729
 
 # Matching parameters stage 1
 X.mtc1=c("ymatch","rpcinc1","hhsize","age_hhh") # nearest neighbor search variables
-don.vars1=c("welfare","sh_ynyl19","sh_ynyl23") #variables to be imputed 
+don.vars1=c("welfare","sh_ynyl19","share_food") #variables to be imputed 
 
 # Year stage 2
 year=2024  #2016 or 2023

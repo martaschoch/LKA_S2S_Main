@@ -2,9 +2,7 @@
 
 ####Prepare receiver survey#####
 data.rec=read_dta(paste(datapath,"cleaned/lfs2019_clean.dta",sep=""))
-data.rec=read_dta(paste(datapath,
-  "/Data/Stage 1/Cleaned/IND_2022_PLFS_v01_M_v02_A_s2s_HCES_to_PLFS.dta",sep=""))
-#create sequential IDs
+
 data.rec$hidseq=seq(1:nrow(data.rec))
 
 #Additional clean and construction
@@ -20,16 +18,16 @@ missing_report.rec <- data.rec %>%
                  names_to = "Variable", values_to = "PercentMissing")
 subset(missing_report.rec,PercentMissing>0)
 #based on report, these variables are excluded only when using linear models
-data.rec=subset(data.rec,sel=-c(num_agri_emp,
-                                num_indexcons_emp,
-                                num_cons_emp,
-                                num_ind_emp,
-                                num_serv_emp,
-                                num_public_emp,
-                                num_pvt_emp,
-                                num_family_worker,
-                                num_employer,
-                                num_self_emp))
+# data.rec=subset(data.rec,sel=-c(num_agri_emp,
+#                                 num_indexcons_emp,
+#                                 num_cons_emp,
+#                                 num_ind_emp,
+#                                 num_serv_emp,
+#                                 num_public_emp,
+#                                 num_pvt_emp,
+#                                 num_family_worker,
+#                                 num_employer,
+#                                 num_self_emp))
 
 data.rec=na.omit(data.rec)
 
@@ -62,4 +60,10 @@ missing_report.don <- data.don %>%
 subset(missing_report.don,PercentMissing>0)
 #data.don=subset(data.don,sel=-c(sex_ratio))
 
+hies_sh_food=read_dta("C:/Users/wb553773/Downloads/LKA_food_share.dta")
+hies_sh_food = hies_sh_food |>
+    filter(pid==1) |>
+    select(hhid,share_food)
+
+data.don=merge(data.don,hies_sh_food,by="hhid",all.x=TRUE)
 

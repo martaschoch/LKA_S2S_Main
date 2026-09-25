@@ -4,9 +4,9 @@
 
 
 # parallel set
-numCores <- detectCores()
-cl <- makeCluster(numCores-1)
-registerDoParallel(cl)
+# numCores <- detectCores()
+# cl <- makeCluster(numCores-1)
+# registerDoParallel(cl)
 
 #####Define custom functions####
 
@@ -69,7 +69,7 @@ formula.mod.b <- as.formula(paste("fic_dep_var ~",
   #matching
   simcons_match=subset(data.rec,sel=c(hhid)) # here we save welfare
   simcons_share_19=subset(data.rec,sel=c(hhid)) # here we save the share (sh_ynyl19)
-  simcons_share_23=subset(data.rec,sel=c(hhid)) # here we save the share (sh_ynyl19)
+  simcons_share_23=subset(data.rec,sel=c(hhid)) # here we save the share of food (share_food)
   #prediction
   simcons_pred=subset(data.rec,sel=c(hhid))# here we save welfare
   
@@ -203,7 +203,7 @@ formula.mod.b <- as.formula(paste("fic_dep_var ~",
                           z.vars=don.vars)  
   fA.wrnd.c = fA.wrnd[,c("hhid","welfare")]
   fA.wrnd.s19 = fA.wrnd[,c("hhid","sh_ynyl19")]
-  fA.wrnd.s23 = fA.wrnd[,c("hhid","sh_ynyl23")]
+  fA.wrnd.s23 = fA.wrnd[,c("hhid","share_food")]
   names(fA.wrnd.c)[2]=paste("welfare_",j,sep="")
   names(fA.wrnd.s19)[2]=paste("share_",j,sep="")
   names(fA.wrnd.s23)[2]=paste("share_",j,sep="")
@@ -214,78 +214,86 @@ formula.mod.b <- as.formula(paste("fic_dep_var ~",
      fA.wrnd.s19,fA.wrnd.s23,rnd.2)
   }
 
-stopCluster(cl)
+#stopCluster(cl)
   
   
-#save simulations results
-#R-squared
-write.csv(r2,file=paste(datapath,
-   "cleaned/Outputs/Intermediate/Simulations_R2_",sim,".csv",sep=""),
-            row.names = FALSE)
-#Model used
-write.csv(md,file=paste(datapath,
-    "cleaned/Outputs/Intermediate/Simulations_model_used_",sim,".csv",sep=""),
-            row.names = FALSE)
+# #save simulations results
+# #R-squared
+# write.csv(r2,file=paste(datapath,
+#    "cleaned/Outputs/Intermediate/Simulations_R2_",sim,".csv",sep=""),
+#             row.names = FALSE)
+# #Model used
+# write.csv(md,file=paste(datapath,
+#     "cleaned/Outputs/Intermediate/Simulations_model_used_",sim,".csv",sep=""),
+#             row.names = FALSE)
   
   
 #Ensembles match consumption
-  # simcons_match$welfare_mean=apply(simcons_match[,-1],
-  #                                    1,mean,na.rm=TRUE)
-  # simcons_match$welfare_median=apply(simcons_match[,-1],
-  #                                      1,median,na.rm=TRUE)
-  # simcons_match$welfare_geom=apply(simcons_match[,-1],
-  #                                    1,geometric_mean,na.rm=TRUE)
-write.csv(simcons_match,file=paste(datapath,
-        "cleaned/Stage 1/Final/Simulations_match_",sim,".csv",sep=""),
-        row.names = FALSE)
-saveRDS(simcons_match,file=paste(datapath,
-        "cleaned/Stage 1/Final/Simulations_match_",sim,".rds",sep=""))
+  simcons_match$welfare_mean=apply(simcons_match[,-1],
+                                     1,mean,na.rm=TRUE)
+  simcons_match$welfare_median=apply(simcons_match[,-1],
+                                       1,median,na.rm=TRUE)
+  simcons_match$welfare_geom=apply(simcons_match[,-1],
+                                     1,geometric_mean,na.rm=TRUE)
+# write.csv(simcons_match,file=paste(datapath,
+#         "cleaned/Stage 1/Final/Simulations_match_",sim,".csv",sep=""),
+#         row.names = FALSE)
+# saveRDS(simcons_match,file=paste(datapath,
+#         "cleaned/Stage 1/Final/Simulations_match_",sim,".rds",sep=""))
 
 
-# #Ensembles share 19
-# simcons_share$share_mean=apply(simcons_share[,-1],
-#                                  1,mean,na.rm=TRUE)
-# simcons_share$share_median=apply(simcons_share[,-1],
-#                                    1,median,na.rm=TRUE)
-# #simcons_share$share_geom=apply(simcons_share[,-1],
-# #                                 1,geometric_mean,na.rm=TRUE)
-# simcons_share$share_geom=simcons_share$share_median #geometric mean cannot be 
-# #calculated since you have zeros
+#Ensembles share 19
+simcons_share_19$share_mean=apply(simcons_share_19[,-1],
+                                 1,mean,na.rm=TRUE)
+simcons_share_19$share_median=apply(simcons_share_19[,-1],
+                                   1,median,na.rm=TRUE)
+#simcons_share_19$share_geom=apply(simcons_share_19[,-1],
+#                                 1,geometric_mean,na.rm=TRUE)
+simcons_share_19$share_geom=simcons_share_19$share_median #geometric mean cannot be 
+# # #calculated since there are zeros
 
-write.csv(simcons_share_19,file=paste(datapath,
-                "cleaned/Stage 1/Final/Simulations_share_19_",sim,".csv",sep=""),
-          row.names = FALSE)
-saveRDS(simcons_share_19,file=paste(datapath,
-                "cleaned/Stage 1/Final/Simulations_share_19_",sim,".rds",sep=""))
+# write.csv(simcons_share_19,file=paste(datapath,
+#                 "cleaned/Stage 1/Final/Simulations_share_19_",sim,".csv",sep=""),
+#           row.names = FALSE)
+# saveRDS(simcons_share_19,file=paste(datapath,
+#                 "cleaned/Stage 1/Final/Simulations_share_19_",sim,".rds",sep=""))
 
-
+#Ensembles share food
+simcons_share_23$share_mean=apply(simcons_share_23[,-1],
+                                 1,mean,na.rm=TRUE)
+simcons_share_23$share_median=apply(simcons_share_23[,-1],
+                                   1,median,na.rm=TRUE)
+#simcons_share_23$share_geom=apply(simcons_share_23[,-1],
+#                                 1,geometric_mean,na.rm=TRUE)
+simcons_share_23$share_geom=simcons_share_23$share_median #geometric mean cannot be 
+# # #calculated since there are zeros
 write.csv(simcons_share_23,file=paste(datapath,
-                "cleaned/Stage 1/Final/Simulations_share_23_",sim,".csv",sep=""),
+                "cleaned/Stage 1/Final/Simulations_share_food_",sim,".csv",sep=""),
           row.names = FALSE)
 saveRDS(simcons_share_23,file=paste(datapath,
-                "cleaned/Stage 1/Final/Simulations_share_23_",sim,".rds",sep=""))
+                "cleaned/Stage 1/Final/Simulations_share_food_",sim,".rds",sep=""))
 
 
 # #Ensembles pred
-# simcons_pred$welfare_mean=apply(simcons_pred[,-1],
-#                                    1,mean,na.rm=TRUE)
-# simcons_pred$welfare_median=apply(simcons_pred[,-1],
-#                                      1,median,na.rm=TRUE)
-# simcons_pred$welfare_geom=apply(simcons_pred[,-1],
-#                                    1,geometric_mean,na.rm=TRUE)
+simcons_pred$welfare_mean=apply(simcons_pred[,-1],
+                                   1,mean,na.rm=TRUE)
+simcons_pred$welfare_median=apply(simcons_pred[,-1],
+                                     1,median,na.rm=TRUE)
+simcons_pred$welfare_geom=apply(simcons_pred[,-1],
+                                   1,geometric_mean,na.rm=TRUE)
 
-write.csv(simcons_pred,file=paste(datapath,
-       "cleaned/Stage 1/Final/Simulations_pred_",sim,".csv",sep=""),
-          row.names = FALSE)
-saveRDS(simcons_pred,file=paste(datapath,
-      "cleaned/Stage 1/Final/Simulations_pred_",sim,".rds",sep=""))
+# write.csv(simcons_pred,file=paste(datapath,
+#        "cleaned/Stage 1/Final/Simulations_pred_",sim,".csv",sep=""),
+#           row.names = FALSE)
+# saveRDS(simcons_pred,file=paste(datapath,
+#       "cleaned/Stage 1/Final/Simulations_pred_",sim,".rds",sep=""))
 
-#Ensemble coefficients
-coefs$coef=apply(coefs, 1,mean,na.rm=TRUE)
+# #Ensemble coefficients
+# coefs$coef=apply(coefs, 1,mean,na.rm=TRUE)
 
-write.csv(coefs,file=paste(datapath,
-      "cleaned/Outputs/Intermediate/Simulations_coefficients_",sim,".csv",
-       sep=""),
-          row.names = TRUE)
+# write.csv(coefs,file=paste(datapath,
+#       "cleaned/Outputs/Intermediate/Simulations_coefficients_",sim,".csv",
+#        sep=""),
+#           row.names = TRUE)
 
 

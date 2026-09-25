@@ -14,7 +14,7 @@
 # -----------------------------
 # training Data for HHs with income: LFS 2019
 lfs.don <- read_dta(paste(datapath,
-        "cleaned/Stage 1/Final/Imputed_LFS_19.dta",
+        "cleaned/Stage 1/Final/Imputed_LFS_19_share_food.dta",
                           sep="")) 
 lfs.don$logwelfare=log(lfs.don$welfare)
 lfs.don$district=as.factor(lfs.don$district)
@@ -42,12 +42,20 @@ hies.don$flag6_income2=with(hies.don,ifelse(rpcinc1>0,0,1))
 hies.don = hies.don |>
     mutate(ratio=ifelse(rpcinc1>0,welfare/rpcinc1,NA))
 
+# add share_food to hies_nl before merging with hies.don
 hies_nl=read_dta("C:/Users/wb553773/Downloads/nonlabor_inc_2024_gdp.dta")
+hies_sh_food=read_dta("C:/Users/wb553773/Downloads/LKA_food_share.dta")
+hies_sh_food = hies_sh_food |>
+    filter(pid==1) |>
+    select(hhid,share_food)
 hies_nl = hies_nl |>
     select(hhid,h_pensions_s_2019pr,h_capital_s_2019pr,h_transfers_s_2019pr,
             h_ns_remit_s_2019pr,
            h_dom_remit_s_2019pr,h_int_remit_s_2019pr,h_otherinla_s_2019pr,
-           h_renta_imp_s_2019pr)
+           h_renta_imp_s_2019pr) |>
+    left_join(hies_sh_food, by="hhid")
+
+
 
 hies.don=merge(hies.don,hies_nl,by="hhid",all.x=TRUE)
 #####Prepare receiver survey##### 
@@ -94,8 +102,9 @@ simcons_match_i5=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
 simcons_match_i6=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
 simcons_match_i7=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
 simcons_match_i8=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
+simcons_match_sh=subset(lfs.rec,flag6_income2==0,sel=c(hhid))
 
-don.vars2.0=c("ratio","h_pensions_s_2019pr","h_capital_s_2019pr",
+don.vars2.0=c("share_food","ratio","h_pensions_s_2019pr","h_capital_s_2019pr",
             "h_transfers_s_2019pr",
             "h_ns_remit_s_2019pr",
             "h_dom_remit_s_2019pr","h_int_remit_s_2019pr","h_otherinla_s_2019pr",
@@ -139,6 +148,7 @@ foreach(sim = 1:nsim2) %do% {
     fA.wrnd.i6 = fA.wrnd[,c("hhid","h_int_remit_s_2019pr")]
     fA.wrnd.i7 = fA.wrnd[,c("hhid","h_otherinla_s_2019pr")]
     fA.wrnd.i8 = fA.wrnd[,c("hhid","h_renta_imp_s_2019pr")]
+    fA.wrnd.i9 = fA.wrnd[,c("hhid","share_food")]
     names(fA.wrnd.c)[2]=paste("welfare_",sim,sep="")
     names(fA.wrnd.i1)[2]=paste("y_nl1_",sim,sep="")
     names(fA.wrnd.i2)[2]=paste("y_nl2_",sim,sep="")
@@ -148,6 +158,7 @@ foreach(sim = 1:nsim2) %do% {
     names(fA.wrnd.i6)[2]=paste("y_nl6_",sim,sep="")
     names(fA.wrnd.i7)[2]=paste("y_nl7_",sim,sep="")
     names(fA.wrnd.i8)[2]=paste("y_nl8_",sim,sep="")
+    names(fA.wrnd.i9)[2]=paste("share_food_",sim,sep="")
     simcons_match=merge(simcons_match,fA.wrnd.c,by="hhid")
     simcons_match_i1=merge(simcons_match_i1,fA.wrnd.i1,by="hhid")
     simcons_match_i2=merge(simcons_match_i2,fA.wrnd.i2,by="hhid")
@@ -157,9 +168,10 @@ foreach(sim = 1:nsim2) %do% {
     simcons_match_i6=merge(simcons_match_i6,fA.wrnd.i6,by="hhid")
     simcons_match_i7=merge(simcons_match_i7,fA.wrnd.i7,by="hhid")
     simcons_match_i8=merge(simcons_match_i8,fA.wrnd.i8,by="hhid")
+    simcons_match_sh=merge(simcons_match_sh,fA.wrnd.i9,by="hhid")
     rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i1,fA.wrnd.i2,
         fA.wrnd.i3,fA.wrnd.i4,fA.wrnd.i5,fA.wrnd.i6,fA.wrnd.i7,
-        fA.wrnd.i8,rnd.2)
+        fA.wrnd.i8,fA.wrnd.i9,rnd.2)
 }
 
 df.match.0=simcons_match
@@ -171,6 +183,7 @@ df.match.0.i5=simcons_match_i5
 df.match.0.i6=simcons_match_i6
 df.match.0.i7=simcons_match_i7
 df.match.0.i8=simcons_match_i8
+df.match.0.sh=simcons_match_sh
 
 df.match.0$welfare_median=apply(df.match.0[,-1],
                               1,median,na.rm=TRUE)
@@ -189,6 +202,8 @@ df.match.0.i6$y_nl6_median=apply(df.match.0.i6[,-1],
 df.match.0.i7$y_nl7_median=apply(df.match.0.i7[,-1],
                                 1,median,na.rm=TRUE)
 df.match.0.i8$y_nl8_median=apply(df.match.0.i8[,-1],
+                                1,median,na.rm=TRUE)
+df.match.0.sh$share_food_median=apply(df.match.0.sh[,-1],
                                 1,median,na.rm=TRUE)
 
 lfs.imp.0=merge(lfs.rec[lfs.rec$flag6_income2==0,],
@@ -218,11 +233,15 @@ lfs.imp.0=merge(lfs.imp.0,
 lfs.imp.0=merge(lfs.imp.0,
                 df.match.0.i8[,c("hhid","y_nl8_median")],by="hhid",
                 all.x=TRUE)
+lfs.imp.0=merge(lfs.imp.0,
+                df.match.0.sh[,c("hhid","share_food_median")],by="hhid",
+                all.x=TRUE)
 
 lfs.imp.0 = lfs.imp.0 %>%
     rename(welfare=welfare_median,h_pensions_s_2019pr=y_nl1_median,h_capital_s_2019pr=y_nl2_median,
            h_transfers_s_2019pr=y_nl3_median,h_ns_remit_s_2019pr=y_nl4_median,h_dom_remit_s_2019pr=y_nl5_median,
-           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median) %>%
+           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median,
+           share_food=share_food_median) %>%
     mutate(logwelfare=log(welfare))
 
 
@@ -232,79 +251,79 @@ lfs.imp.0 = lfs.imp.0 %>%
 # # Run only once to find optimal parameters
 # # -----------------------------
 
-# Set up parallel backend using available cores
-n_cores <- parallel::detectCores() - 1  # Reserve one core for OS
-#cl <- makeCluster(n_cores)
-cl <- parallel::makePSOCKcluster(n_cores, rscript_args="--vanilla")
-registerDoParallel(cl)
+# # Set up parallel backend using available cores
+# n_cores <- parallel::detectCores() - 1  # Reserve one core for OS
+# #cl <- makeCluster(n_cores)
+# cl <- parallel::makePSOCKcluster(n_cores, rscript_args="--vanilla")
+# registerDoParallel(cl)
 
-max_depth_values <- c(3, 5, 7)
-gamma_values <- c(0, 0.1, 0.3)
-subsample_values <- c(0.7, 0.8, 0.9)
-colsample_bytree_values <- c(0.6, 0.8, 1.0)
+# max_depth_values <- c(3, 5, 7)
+# gamma_values <- c(0, 0.1, 0.3)
+# subsample_values <- c(0.7, 0.8, 0.9)
+# colsample_bytree_values <- c(0.6, 0.8, 1.0)
 
-# Create a grid of all parameter combinations
-param_grid <- expand.grid(max_depth = max_depth_values,
-                          gamma = gamma_values,
-                          subsample = subsample_values,
-                          colsample_bytree = colsample_bytree_values)
+# # Create a grid of all parameter combinations
+# param_grid <- expand.grid(max_depth = max_depth_values,
+#                           gamma = gamma_values,
+#                           subsample = subsample_values,
+#                           colsample_bytree = colsample_bytree_values)
 
-# Base parameters (others will be added from the grid)
-base_params <- list(
-    objective = "reg:squarederror",
-    eval_metric = "rmse",
-    eta = 0.1,
-    nthread = n_cores
-)
+# # Base parameters (others will be added from the grid)
+# base_params <- list(
+#     objective = "reg:squarederror",
+#     eval_metric = "rmse",
+#     eta = 0.1,
+#     nthread = n_cores
+# )
 
-# Prepare training data (2019), HHs w/o income
-mod.full=lm(logwelfare~.,
-            data=hies.don[,
-                         c("logwelfare",covariates)])
-X_train_full = model.matrix(mod.full)
-y_train_full <- hies.don$logwelfare
+# # Prepare training data (2019), HHs w/o income
+# mod.full=lm(logwelfare~.,
+#             data=hies.don[,
+#                          c("logwelfare",covariates)])
+# X_train_full = model.matrix(mod.full)
+# y_train_full <- hies.don$logwelfare
 
 
-# Parallel grid search using foreach
-tuning_results_1 <- foreach(i = 1:nrow(param_grid),
-        .combine = rbind,
-        .packages = "xgboost",
-        .export = c("X_train_full", "y_train_full")) %dopar% {
+# # Parallel grid search using foreach
+# tuning_results_1 <- foreach(i = 1:nrow(param_grid),
+#         .combine = rbind,
+#         .packages = "xgboost",
+#         .export = c("X_train_full", "y_train_full")) %dopar% {
 
-    dtrain_full <- xgb.DMatrix(data = X_train_full, label = y_train_full)
-    params <- c(base_params, list(max_depth = param_grid$max_depth[i],
-                                  gamma = param_grid$gamma[i],
-                                  subsample = param_grid$subsample[i],
-                                  colsample_bytree = param_grid$colsample_bytree[i]))
+#     dtrain_full <- xgb.DMatrix(data = X_train_full, label = y_train_full)
+#     params <- c(base_params, list(max_depth = param_grid$max_depth[i],
+#                                   gamma = param_grid$gamma[i],
+#                                   subsample = param_grid$subsample[i],
+#                                   colsample_bytree = param_grid$colsample_bytree[i]))
 
-    cv_model <- xgb.cv(
-        params = params,
-        data = dtrain_full,
-        nrounds = 100,
-        nfold = 5,
-        early_stopping_rounds = 10,
-        verbose = 0
-    )
+#     cv_model <- xgb.cv(
+#         params = params,
+#         data = dtrain_full,
+#         nrounds = 100,
+#         nfold = 5,
+#         early_stopping_rounds = 10,
+#         verbose = 0
+#     )
 
-    best_iter <- cv_model$best_iteration
-    best_rmse <- cv_model$evaluation_log$test_rmse_mean[best_iter]
+#     best_iter <- cv_model$best_iteration
+#     best_rmse <- cv_model$evaluation_log$test_rmse_mean[best_iter]
 
-    data.frame(max_depth = param_grid$max_depth[i],
-               gamma = param_grid$gamma[i],
-               subsample = param_grid$subsample[i],
-               colsample_bytree = param_grid$colsample_bytree[i],
-               best_rmse = best_rmse,
-               best_iteration = best_iter)
-}
-# Stop the cluster after tuning
-stopCluster(cl)
-print(tuning_results_1)
-rm(mod.full,X_train_full,y_train_full)
+#     data.frame(max_depth = param_grid$max_depth[i],
+#                gamma = param_grid$gamma[i],
+#                subsample = param_grid$subsample[i],
+#                colsample_bytree = param_grid$colsample_bytree[i],
+#                best_rmse = best_rmse,
+#                best_iteration = best_iter)
+# }
+# # Stop the cluster after tuning
+# stopCluster(cl)
+# print(tuning_results_1)
+# rm(mod.full,X_train_full,y_train_full)
 
-write.csv(tuning_results_1,file=paste(outpath,
-                    "/Outputs/Intermediate/Models/XGB_tuning_hies_2019",
-                    ".csv",sep=""),
-           row.names = FALSE)
+# write.csv(tuning_results_1,file=paste(outpath,
+#                     "/Outputs/Intermediate/Models/XGB_tuning_hies_2019",
+#                     ".csv",sep=""),
+#            row.names = FALSE)
 
 # Run these lines to load tuning results previously saved
 tuning_results_1=read.csv(paste(outpath,
@@ -332,10 +351,10 @@ print(best_params_1)
 # Step 3: Predictions via PMM in 2023 (HHs w/o income)
 # -----------------------------
 
-n_cores <- parallel::detectCores() - 1
-#cl <- makeCluster(n_cores)
-cl <- parallel::makePSOCKcluster(n_cores, rscript_args="--vanilla")
-registerDoParallel(cl)
+# n_cores <- parallel::detectCores() - 1
+# #cl <- makeCluster(n_cores)
+# cl <- parallel::makePSOCKcluster(n_cores, rscript_args="--vanilla")
+# registerDoParallel(cl)
 #lfs.don=lfs.imp.0 
 #match
 simcons_match=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
@@ -347,8 +366,9 @@ simcons_match_i5=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
 simcons_match_i6=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
 simcons_match_i7=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
 simcons_match_i8=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
+simcons_match_sh=subset(lfs.rec,flag6_income2==1,sel=c(hhid))
 
-don.vars2.1=c("welfare","h_pensions_s_2019pr","h_capital_s_2019pr",
+don.vars2.1=c("welfare","share_food","h_pensions_s_2019pr","h_capital_s_2019pr",
             "h_transfers_s_2019pr",
             "h_ns_remit_s_2019pr",
             "h_dom_remit_s_2019pr","h_int_remit_s_2019pr","h_otherinla_s_2019pr",
@@ -369,19 +389,23 @@ foreach(sim = 1:nsim2) %do% {
     
     # Use best_params from tuning; run CV to get optimal nrounds on the bootstrap sample
     cv_model <- xgb.cv(
-        params = best_params_1,
-        data = dtrain,
-        nrounds = 100,
-        nfold = 5,
-        early_stopping_rounds = 100,
-        verbose = 0
+    params                = best_params_1,
+    data                  = dtrain,
+    nrounds               = 100,
+    nfold                 = 5,
+    early_stopping_rounds = 10,      # must be < nrounds to ever trigger
+    verbose               = 0
     )
+
     best_nrounds <- cv_model$best_iteration
-    
-    # Train model on the bootstrap sample
-    model <- xgboost(
-        params = best_params_1,
-        data = dtrain,
+    if (is.null(best_nrounds) || length(best_nrounds) == 0) {
+    # new xgboost stores it here; otherwise fall back to nrounds
+    best_nrounds <- cv_model$niter %||% 100
+    }
+
+    model <- xgb.train(
+        params  = best_params_1,
+        data    = dtrain,
         nrounds = best_nrounds,
         verbose = 0
     )
@@ -450,6 +474,7 @@ foreach(sim = 1:nsim2) %do% {
     fA.wrnd.i6 = fA.wrnd[,c("hhid","h_int_remit_s_2019pr")]
     fA.wrnd.i7 = fA.wrnd[,c("hhid","h_otherinla_s_2019pr")]
     fA.wrnd.i8 = fA.wrnd[,c("hhid","h_renta_imp_s_2019pr")]
+    fA.wrnd.i9 = fA.wrnd[,c("hhid","share_food")]
     names(fA.wrnd.c)[2]=paste("welfare_",sim,sep="")
     names(fA.wrnd.i1)[2]=paste("y_nl1_",sim,sep="")
     names(fA.wrnd.i2)[2]=paste("y_nl2_",sim,sep="")
@@ -459,6 +484,7 @@ foreach(sim = 1:nsim2) %do% {
     names(fA.wrnd.i6)[2]=paste("y_nl6_",sim,sep="")
     names(fA.wrnd.i7)[2]=paste("y_nl7_",sim,sep="")
     names(fA.wrnd.i8)[2]=paste("y_nl8_",sim,sep="")
+    names(fA.wrnd.i9)[2]=paste("share_food_",sim,sep="")
     simcons_match=merge(simcons_match,fA.wrnd.c,by="hhid")
     simcons_match_i1=merge(simcons_match_i1,fA.wrnd.i1,by="hhid")
     simcons_match_i2=merge(simcons_match_i2,fA.wrnd.i2,by="hhid")
@@ -468,9 +494,10 @@ foreach(sim = 1:nsim2) %do% {
     simcons_match_i6=merge(simcons_match_i6,fA.wrnd.i6,by="hhid")
     simcons_match_i7=merge(simcons_match_i7,fA.wrnd.i7,by="hhid")
     simcons_match_i8=merge(simcons_match_i8,fA.wrnd.i8,by="hhid")
+    simcons_match_sh=merge(simcons_match_sh,fA.wrnd.i9,by="hhid")
     rm(samp.atemp,samp.btemp,fA.wrnd.c,fA.wrnd.i1,fA.wrnd.i2,
         fA.wrnd.i3,fA.wrnd.i4,fA.wrnd.i5,fA.wrnd.i6,fA.wrnd.i7,
-        fA.wrnd.i8,rnd.2)
+        fA.wrnd.i8,fA.wrnd.i9,rnd.2)
 }
 # Stop the cluster after simulations
 #stopCluster(cl)
@@ -489,6 +516,7 @@ df.match.1.i5=simcons_match_i5
 df.match.1.i6=simcons_match_i6
 df.match.1.i7=simcons_match_i7
 df.match.1.i8=simcons_match_i8
+df.match.1.sh=simcons_match_sh
 
 df.match.1$welfare_median=apply(df.match.1[,-1],
                                 1,median,na.rm=TRUE)
@@ -507,6 +535,8 @@ df.match.1.i6$y_nl6_median=apply(df.match.1.i6[,-1],
 df.match.1.i7$y_nl7_median=apply(df.match.1.i7[,-1],
                              1,median,na.rm=TRUE)
 df.match.1.i8$y_nl8_median=apply(df.match.1.i8[,-1],
+                             1,median,na.rm=TRUE)
+df.match.1.sh$share_food_median=apply(df.match.1.sh[,-1],
                              1,median,na.rm=TRUE)
 
 lfs.imp.1=merge(lfs.rec[lfs.rec$flag6_income2==1,],
@@ -536,12 +566,16 @@ lfs.imp.1=merge(lfs.imp.1,
 lfs.imp.1=merge(lfs.imp.1,
                 df.match.1.i8[,c("hhid","y_nl8_median")],by="hhid",
                 all.x=TRUE)
+lfs.imp.1=merge(lfs.imp.1,
+                df.match.1.sh[,c("hhid","share_food_median")],by="hhid",
+                all.x=TRUE)
 
 
 lfs.imp.1 = lfs.imp.1 %>%
   rename(welfare=welfare_median,h_pensions_s_2019pr=y_nl1_median,h_capital_s_2019pr=y_nl2_median,
            h_transfers_s_2019pr=y_nl3_median,h_ns_remit_s_2019pr=y_nl4_median,h_dom_remit_s_2019pr=y_nl5_median,
-           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median) %>%
+           h_int_remit_s_2019pr=y_nl6_median,h_otherinla_s_2019pr=y_nl7_median,h_renta_imp_s_2019pr=y_nl8_median,
+           share_food=share_food_median) %>%
     mutate(logwelfare=log(welfare))
 
 
@@ -552,7 +586,7 @@ lfs.imp.1 = lfs.imp.1 %>%
 lfs.imp=bind_rows(lfs.imp.0,lfs.imp.1)
 
 write_dta(lfs.imp,paste(datapath,
-       "/lfs2024_imputed_non_labor.dta",sep=""))
+       "/lfs2024_imputed_non_labor_share_food.dta",sep=""))
 
 gini=with(lfs.imp,gini.wtd(welfare,popwt))
 

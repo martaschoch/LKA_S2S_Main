@@ -167,8 +167,8 @@ head(final_pred_df)
 
 #Keep prediction-based imputation
 data.rec2=merge(data.rec,final_pred_df,by="hhid",all.x = TRUE)
-write_dta(data.rec,paste(datapath,
-     "cleaned/Stage 1/Final/Imputed_LFS_19_pred.dta",sep=""))
+# write_dta(data.rec,paste(datapath,
+#      "cleaned/Stage 1/Final/Imputed_LFS_19_pred.dta",sep=""))
 
 
 #Keep matching-based imputation using distributional distance
@@ -178,7 +178,7 @@ data.rec2 = data.rec2 %>%
   rename(share_19=share)
 data.rec2=merge(data.rec2,final_share_23_df,by="hhid",all.x = TRUE)
 data.rec2 = data.rec2 %>%
-  rename(share_23=share)
+  rename(share_food=share)
 write_dta(data.rec2,paste(datapath,
-      "cleaned/Stage 1/Final/Imputed_LFS_19_match_share.dta",sep=""))
+      "cleaned/Stage 1/Final/Imputed_LFS_19_match_share_food.dta",sep=""))
 
