@@ -115,6 +115,9 @@ source(file.path(codepath, "Code/01-Stage 1-Simulation.R"))
 source(file.path(codepath, "Code/02-Stage 1-Ensemble.R"))
 source(file.path(codepath, "Code/03-Stage 1-Outputs.R"))
 #Stage 2
+source(file.path(codepath, "Code/04-Stage 2-Simulation2016-XGB.R"))
+source(file.path(codepath, "Code/04-Stage 2-Simulation2020-XGB.R"))
+#2021 to 2024
 source(file.path(codepath, "Code/04-Stage 2-Simulation-XGB.R"))
 source(file.path(codepath, "Code/05-Stage 2-Outputs.R"))
 
